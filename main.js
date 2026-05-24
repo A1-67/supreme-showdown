@@ -13,7 +13,7 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 1200 }, // Apply global gravity for realistic jumps
+            gravity: { y: 1200 },
             debug: false
         }
     },
