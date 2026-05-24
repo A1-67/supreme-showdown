@@ -1,0 +1,45 @@
+const CACHE_NAME = 'showdown-v1';
+// Add every local asset file your game needs to run offline
+const ASSETS_TO_CACHE = [
+  'index.html',
+  'main.js',
+  'game.js',
+  'entities.js',
+  'ui.js',
+  'manifest.json',
+  'assets/icon-192.png',
+  'assets/icon-512.png'
+];
+
+// Install Event: Caches all static elements
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
+});
+
+// Activate Event: Cleans up old caches if you update the game
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+});
+
+// Fetch Event: Serves assets from cache if offline
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      return cachedResponse || fetch(event.request);
+    })
+  );
+});
