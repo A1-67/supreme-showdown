@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import BattleScene from './game.js';
 
-// Configuration for Supreme Showdown
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
@@ -14,7 +13,7 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 0 },
+            gravity: { y: 1200 }, // Apply global gravity for realistic jumps
             debug: false
         }
     },
@@ -22,6 +21,4 @@ const config = {
     backgroundColor: '#09090b'
 };
 
-// Bootstrap Phaser
 const game = new Phaser.Game(config);
-export default game;
