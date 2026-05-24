@@ -21,7 +21,12 @@ class Projectile extends Phaser.Physics.Arcade.Sprite {
 
 export class Fighter extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, characterId, isFlipped, isAI) {
-        super(scene, x, y);
+        // FIX: Provide a valid texture key and then set alpha to 0.
+        // The physics body is created, but the parent sprite is invisible.
+        // Visuals are handled by the 'spriteBody' container.
+        super(scene, x, y, 'book');
+        this.setAlpha(0);
+
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
@@ -43,10 +48,7 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.isCharging = false;
         this.chargeStartTime = 0;
 
-        // Fighter attributes based on character
         this.setFighterAttributes();
-
-        // Create the fighter's visual sprite
         this.createSprite();
 
         this.body.setSize(120, 280);
@@ -55,7 +57,6 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.body.setGravityY(900);
 
         this.projectiles = this.scene.physics.add.group({ classType: Projectile, runChildUpdate: true });
-
         this.createAttackHitbox();
     }
 
@@ -81,42 +82,31 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.spriteBody = this.scene.add.container(0, 0);
 
         if (this.characterId === 'roe') {
-            // Plaintiff Roe: Blue/Cyan outfit
-            this.robe = this.scene.add.graphics();
-            this.robe.fillStyle(0x0e7490, 1); // Dark Cyan
-            this.robe.fillRoundedRect(-50, -150, 100, 200, 12);
-            this.spriteBody.add(this.robe);
-
-            this.head = this.scene.add.graphics();
-            this.head.fillStyle(0xfde047, 1);
-            this.head.fillCircle(0, -160, 32);
-            this.spriteBody.add(this.head);
-
-            // Blonde hair
-            this.hair = this.scene.add.graphics();
-            this.hair.fillStyle(0xfef08a, 1);
-            this.hair.fillCircle(0, -175, 25);
-            this.hair.fillCircle(-20, -165, 20);
-            this.hair.fillCircle(20, -165, 20);
-            this.spriteBody.add(this.hair);
+            const robe = this.scene.add.graphics();
+            robe.fillStyle(0x0e7490, 1);
+            robe.fillRoundedRect(-50, -150, 100, 200, 12);
+            const head = this.scene.add.graphics();
+            head.fillStyle(0xfde047, 1);
+            head.fillCircle(0, -160, 32);
+            const hair = this.scene.add.graphics();
+            hair.fillStyle(0xfef08a, 1);
+            hair.fillCircle(0, -175, 25);
+            hair.fillCircle(-20, -165, 20);
+            hair.fillCircle(20, -165, 20);
+            this.spriteBody.add([robe, head, hair]);
         } else {
-            // Defendant Wade: Red/Maroon outfit
-            this.robe = this.scene.add.graphics();
-            this.robe.fillStyle(0xbe123c, 1); // Dark Red
-            this.robe.fillRoundedRect(-50, -150, 100, 200, 12);
-            this.spriteBody.add(this.robe);
-
-            this.head = this.scene.add.graphics();
-            this.head.fillStyle(0xfde047, 1);
-            this.head.fillCircle(0, -160, 32);
-
-            // Grey hair
-            this.hair = this.scene.add.graphics();
-            this.hair.fillStyle(0x9ca3af, 1);
-            this.hair.fillRoundedRect(-22, -170, 44, 14, 4);
-            this.hair.fillCircle(-20, -148, 8);
-            this.hair.fillCircle(20, -148, 8);
-            this.spriteBody.add([this.head, this.hair]);
+            const robe = this.scene.add.graphics();
+            robe.fillStyle(0xbe123c, 1);
+            robe.fillRoundedRect(-50, -150, 100, 200, 12);
+            const head = this.scene.add.graphics();
+            head.fillStyle(0xfde047, 1);
+            head.fillCircle(0, -160, 32);
+            const hair = this.scene.add.graphics();
+            hair.fillStyle(0x9ca3af, 1);
+            hair.fillRoundedRect(-22, -170, 44, 14, 4);
+            hair.fillCircle(-20, -148, 8);
+            hair.fillCircle(20, -148, 8);
+            this.spriteBody.add([robe, head, hair]);
         }
 
         this.add(this.spriteBody);
@@ -139,17 +129,14 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
 
         if (this.isCharging) {
             const chargeDuration = this.scene.time.now - this.chargeStartTime;
-            this.chargePower = Math.min(chargeDuration / 1000, 1.0); // Max charge of 1 second
+            this.chargePower = Math.min(chargeDuration / 1000, 1.0);
         }
 
-        // Flip sprite to face opponent
         if (!this.isStunned && !this.isAttacking) {
              if (this.x < opponent.x) {
-                this.setFlipX(false);
-                this.isFlipped = false;
+                this.setFlipX(false); this.isFlipped = false;
             } else {
-                this.setFlipX(true);
-                this.isFlipped = true;
+                this.setFlipX(true); this.isFlipped = true;
             }
         }
     }
@@ -161,11 +148,9 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
 
     jump() {
         if (this.isStunned) return;
-
         if (this.isGrounded) {
             this.body.setVelocityY(this.jumpForce);
             this.jumpsRemaining = 1;
-            this.isGrounded = false;
         } else if (this.jumpsRemaining > 0) {
             this.body.setVelocityY(this.doubleJumpForce);
             this.jumpsRemaining = 0;
@@ -174,49 +159,31 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
     
     triggerAttack() {
         if (this.isStunned || this.isAttacking) return;
-
         this.isAttacking = true;
         this.lastAttackTime = this.scene.time.now;
-
-        this.scene.time.delayedCall(100, () => {
-            this.enableAttackHitbox(this.damageNormal);
-        });
-
+        this.scene.time.delayedCall(100, () => this.enableAttackHitbox(this.damageNormal));
         this.scene.time.delayedCall(300, () => {
             this.disableAttackHitbox();
             this.isAttacking = false;
         });
-
-        // Visual feedback for attack
-        this.scene.tweens.add({
-            targets: this.spriteBody,
-            scaleX: 1.2,
-            scaleY: 0.8,
-            duration: 150,
-            yoyo: true,
-            ease: 'Power1.easeOut'
-        });
+        this.scene.tweens.add({ targets: this.spriteBody, scaleX: 1.2, scaleY: 0.8, duration: 150, yoyo: true, ease: 'Power1.easeOut' });
     }
 
     triggerProjectile() {
         if (this.isStunned) return;
         const projectile = this.projectiles.get(this.x, this.y, this.characterId === 'roe' ? 'book' : 'gavel', this.isFlipped);
         if (projectile) {
-            const velocityX = this.isFlipped ? -projectile.speed : projectile.speed;
-            projectile.body.setVelocityX(velocityX);
+            projectile.body.setVelocityX(this.isFlipped ? -projectile.speed : projectile.speed);
         }
     }
 
     triggerGroundPound() {
         if (this.isGrounded || this.isStunned) return;
         this.body.setVelocityY(1200);
-
         this.scene.time.delayedCall(50, () => {
             if (this.isGrounded) {
-                this.enableAttackHitbox(15, 150, 30); // Wider, shorter hitbox
-                this.scene.time.delayedCall(100, () => {
-                    this.disableAttackHitbox();
-                });
+                this.enableAttackHitbox(15, 150, 30);
+                this.scene.time.delayedCall(100, () => this.disableAttackHitbox());
             }
         });
     }
@@ -230,27 +197,19 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
 
     releaseChargeAttack() {
         if (!this.isCharging) return;
-
         this.isCharging = false;
-        const chargedDamage = 5 + (this.chargePower * 25); // 5-30 damage
+        const chargedDamage = 5 + (this.chargePower * 25);
         this.enableAttackHitbox(chargedDamage, 160, 100);
-
-        this.scene.time.delayedCall(300, () => {
-            this.disableAttackHitbox();
-        });
-
+        this.scene.time.delayedCall(300, () => this.disableAttackHitbox());
         this.chargePower = 0;
     }
 
     takeDamage(amount, attackText) {
         if (this.isStunned) return;
-
         this.health -= amount;
         this.superMeter += amount / 2;
         if (this.health < 0) this.health = 0;
-
         this.scene.showPopupText(this.x, this.y - 100, attackText[Math.floor(Math.random() * attackText.length)], '#ef4444');
-
         this.isStunned = true;
         this.spriteBody.setAlpha(0.5);
         this.scene.time.delayedCall(500, () => {
