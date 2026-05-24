@@ -87,17 +87,100 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
 
-        this.menuContainer = this.add.container(width / 2, height / 2);
+        this.menuContainer = this.add.container(width / 2, 0);
 
-        const p1Controls = 'Move: A / D | Jump: W\nAttack: J | Projectile: K\nGround Pound: L | Charge: Hold O';
-        const p2Controls = 'Move: Left / Right | Jump: UP\nAttack: 1 | Projectile: 2\nGround Pound: 3 | Charge: Hold 9';
-        const p1Label = this.add.text(-220, 165, 'PLAYER 1: ROE', { fontFamily: '"Press Start 2P"', fontSize: '11px', fill: '#60a5fa' }).setOrigin(0.5);
-        const p1ControlsText = this.add.text(-220, 240, p1Controls, { fontFamily: 'Arial', fontSize: '14px', fill: '#d1d5db', align: 'center', lineSpacing: 5 }).setOrigin(0.5);
-        const p2Label = this.add.text(220, 165, 'PLAYER 2: WADE', { fontFamily: '"Press Start 2P"', fontSize: '11px', fill: '#fca5a5' }).setOrigin(0.5);
-        const p2ControlsText = this.add.text(220, 240, p2Controls, { fontFamily: 'Arial', fontSize: '14px', fill: '#d1d5db', align: 'center', lineSpacing: 5 }).setOrigin(0.5);
+        // Title
+        const title = this.add.text(0, 150, 'SUPREME SHOWDOWN', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '64px',
+            fill: '#fde047',
+            stroke: '#000',
+            strokeThickness: 8
+        }).setOrigin(0.5);
+
+        const subtitle = this.add.text(0, 220, 'CONSTITUTIONAL COMBAT', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '28px',
+            fill: '#fff',
+            stroke: '#000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.menuContainer.add([title, subtitle]);
+
+        // Buttons
+        const startBtn = this.createButton(0, height / 2, 'START GAME', () => {
+            this.transitionToCharacterSelect();
+        });
+
+        const controlsBtn = this.createButton(0, height / 2 + 80, 'CONTROLS', () => {
+            this.controlsContainer.setVisible(true);
+        });
+
+        this.menuContainer.add([startBtn, controlsBtn]);
+
+        // --- Controls Panel ---
+        this.controlsContainer = this.add.container(0, height / 2);
+        this.controlsContainer.setVisible(false);
         
-        this.menuContainer.add([p1Label, p1ControlsText, p2Label, p2ControlsText]);
-        // ... rest of createMainMenu
+        const controlsBg = this.add.rectangle(0, 0, width * 0.8, height * 0.7, 0x000000, 0.9);
+        controlsBg.setStrokeStyle(4, 0xeab308);
+
+        const controlsTitle = this.add.text(0, -height * 0.25, 'CONTROLS', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '32px',
+            fill: '#fde047'
+        }).setOrigin(0.5);
+
+        const p1Controls = 'Move: A/D\nJump: W\nAttack: J\nProjectile: K\nGround Pound: L\nCharge: O';
+        const p2Controls = 'Move: Left/Right\nJump: UP\nAttack: 1\nProjectile: 2\nGround Pound: 3\nCharge: 9';
+
+        const p1Title = this.add.text(-width * 0.18, -100, 'PLAYER 1', { fontFamily: '"Press Start 2P"', fontSize: '18px', fill: '#60a5fa' }).setOrigin(0.5);
+        const p1Text = this.add.text(-width * 0.18, 50, p1Controls, { fontFamily: 'Arial', fontSize: '16px', fill: '#fff', align: 'left', lineSpacing: 8 }).setOrigin(0.5);
+
+        const p2Title = this.add.text(width * 0.18, -100, 'PLAYER 2', { fontFamily: '"Press Start 2P"', fontSize: '18px', fill: '#fca5a5' }).setOrigin(0.5);
+        const p2Text = this.add.text(width * 0.18, 50, p2Controls, { fontFamily: 'Arial', fontSize: '16px', fill: '#fff', align: 'left', lineSpacing: 8 }).setOrigin(0.5);
+
+        const backBtn = this.createButton(0, height * 0.25, 'BACK', () => {
+            this.controlsContainer.setVisible(false);
+        });
+
+        this.controlsContainer.add([controlsBg, controlsTitle, p1Title, p1Text, p2Title, p2Text, backBtn]);
+        this.menuContainer.add(this.controlsContainer);
+    }
+
+    createButton(x, y, text, callback) {
+        const btnContainer = this.add.container(x, y);
+        const textObj = this.add.text(0, 0, text, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '20px',
+            fill: '#fff'
+        }).setOrigin(0.5);
+
+        const width = textObj.width + 40;
+        const height = textObj.height + 20;
+
+        const btnBox = this.add.rectangle(0, 0, width, height, 0x18181b, 0.8).setOrigin(0.5);
+        btnBox.setStrokeStyle(3, 0xeab308);
+
+        btnContainer.add([btnBox, textObj]);
+        btnContainer.setSize(width, height);
+        btnContainer.setInteractive({ useHandCursor: true });
+
+        btnContainer.on('pointerover', () => {
+            btnBox.setFillStyle(0x334155, 0.8);
+            textObj.setFill('#fde047');
+        });
+        btnContainer.on('pointerout', () => {
+            btnBox.setFillStyle(0x18181b, 0.8);
+            textObj.setFill('#fff');
+        });
+        btnContainer.on('pointerdown', () => {
+            this.playSFX('gavel-hit');
+            callback();
+        });
+
+        return btnContainer;
     }
 
     setupControls() {
@@ -145,7 +228,24 @@ export default class BattleScene extends Phaser.Scene {
         this.createHUD();
         this.announceRoundStart();
         
-        // ... rest of startFight
+        this.roundTimerValue = 99;
+        this.timerText.setText(this.roundTimerValue.toString());
+        
+        if (this.timerEvent) this.timerEvent.destroy();
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: () => {
+                if (this.gameState === 'fight' && this.roundTimerValue > 0) {
+                    this.roundTimerValue--;
+                    this.timerText.setText(this.roundTimerValue.toString());
+                    
+                    if (this.roundTimerValue === 0) {
+                        this.handleTimeOut();
+                    }
+                }
+            },
+            loop: true
+        });
     }
 
     update() {
@@ -213,11 +313,29 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     checkAttackOverlaps() {
-        // ... (existing overlap checks for melee)
+        // Player 1 Hitbox hitting Player 2
+        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
+            if (!this.player2.isStunned) {
+                this.player2.takeDamage(this.player1.attackHitbox.damage, this.player1.attackText);
+                this.player1.gainSuperMeter(this.comboMeterGain);
+                this.playSFX('gavel-hit');
+                this.cheerSpectators();
+                this.player1.disableAttackHitbox();
+            }
+        }
+
+        // Player 2 Hitbox hitting Player 1
+        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
+            if (!this.player1.isStunned) {
+                this.player1.takeDamage(this.player2.attackHitbox.damage, this.player2.attackText);
+                this.player2.gainSuperMeter(this.comboMeterGain);
+                this.playSFX('gavel-hit');
+                this.cheerSpectators();
+                this.player2.disableAttackHitbox();
+            }
+        }
     }
     
-    // ... (rest of the file remains the same)
-
     createCourtroomProps() {
         const width = this.scale.width;
         const height = this.scale.height;
@@ -249,6 +367,8 @@ export default class BattleScene extends Phaser.Scene {
         // Create invisible ground physics body
         this.ground = this.add.rectangle(width / 2, this.floorY + 15, width, 30, 0x000000, 0);
         this.physics.add.existing(this.ground, true);
+        this.ground.body.setImmovable(true);
+        this.ground.body.allowGravity = false;
     }
 
     createJudicialGallery() {
@@ -400,10 +520,6 @@ export default class BattleScene extends Phaser.Scene {
         });
     }
 
-    /**
-     * MODULE 1: Circular Corner Emblem HUD Layout
-     * Replicates the exact styling, color palette, and layout from the uploaded image!
-     */
     createHUD() {
         const width = this.scale.width;
         this.hudContainer = this.add.container(0, 0);
@@ -413,7 +529,6 @@ export default class BattleScene extends Phaser.Scene {
         this.hudContainer.add(topBar);
 
         // --- PLAYER 1 HUD (ROE - LEFT) ---
-        // Circular Cyan emblem containing scales of justice outline
         const p1Circle = this.add.circle(65, 65, 45, 0x1e3a8a);
         p1Circle.setStrokeStyle(4, 0x60a5fa);
         
@@ -424,7 +539,6 @@ export default class BattleScene extends Phaser.Scene {
         p1CircleScales.strokeCircle(45, 75, 6);
         p1CircleScales.strokeCircle(85, 75, 6);
         
-        // "ROE" text label below circular icon
         this.hudP1Name = this.add.text(125, 25, 'ROE', {
             fontFamily: '"Press Start 2P"',
             fontSize: '18px',
@@ -433,12 +547,10 @@ export default class BattleScene extends Phaser.Scene {
             strokeThickness: 3
         });
 
-        // Sleek Health Bar outer container
         const h1Bg = this.add.rectangle(435, 60, 600, 30, 0x1f2937);
-        h1Bg.setStrokeStyle(3.5, 0xeab308); // Golden borders
-        this.h1Bar = this.add.rectangle(138, 48, 594, 24, 0x22c55e).setOrigin(0, 0); // Green health
+        h1Bg.setStrokeStyle(3.5, 0xeab308);
+        this.h1Bar = this.add.rectangle(138, 48, 594, 24, 0x22c55e).setOrigin(0, 0);
 
-        // Super Meter & Super Gauges underneath health
         const s1Bg = this.add.rectangle(290, 93, 300, 14, 0x111827);
         s1Bg.setStrokeStyle(2, 0x4b5563);
         this.s1Bar = this.add.rectangle(142, 88, 0, 10, 0x6366f1).setOrigin(0, 0);
@@ -448,7 +560,6 @@ export default class BattleScene extends Phaser.Scene {
 
 
         // --- PLAYER 2 HUD (WADE - RIGHT) ---
-        // Circular Red emblem containing gavel outline
         const p2Circle = this.add.circle(width - 65, 65, 45, 0x7f1d1d);
         p2Circle.setStrokeStyle(4, 0xef4444);
 
@@ -458,7 +569,6 @@ export default class BattleScene extends Phaser.Scene {
         p2CircleGavel.fillStyle(0xef4444, 1);
         p2CircleGavel.fillCircle(width - 52, 52, 10);
 
-        // "WADE" text label below icon
         this.hudP2Name = this.add.text(width - 125, 25, 'WADE', {
             fontFamily: '"Press Start 2P"',
             fontSize: '18px',
@@ -467,12 +577,10 @@ export default class BattleScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(1, 0);
 
-        // Sleek Health Bar container
         const h2Bg = this.add.rectangle(width - 435, 60, 600, 30, 0x1f2937);
-        h2Bg.setStrokeStyle(3.5, 0xeab308); // Golden borders
-        this.h2Bar = this.add.rectangle(width - 138 - 594, 48, 594, 24, 0xf97316).setOrigin(0, 0); // Orange/Red health
+        h2Bg.setStrokeStyle(3.5, 0xeab308);
+        this.h2Bar = this.add.rectangle(width - 138 - 594, 48, 594, 24, 0xf97316).setOrigin(0, 0);
 
-        // Super Meter & Super Gauges underneath health
         const s2Bg = this.add.rectangle(width - 290, 93, 300, 14, 0x111827);
         s2Bg.setStrokeStyle(2, 0x4b5563);
         this.s2Bar = this.add.rectangle(width - 142 - 294, 88, 0, 10, 0xec4899).setOrigin(0, 0);
@@ -481,11 +589,10 @@ export default class BattleScene extends Phaser.Scene {
         this.hudContainer.add([p2Circle, p2CircleGavel, this.hudP2Name, h2Bg, this.h2Bar, s2Bg, this.s2Bar, this.s2Text]);
 
 
-        // --- ORNATE ROUND TIMER HUD (TOP CENTER - EXACTLY AS PICTURED!) ---
+        // --- ORNATE ROUND TIMER HUD ---
         const timerBgCircle = this.add.circle(width / 2, 60, 48, 0x1c1917);
-        timerBgCircle.setStrokeStyle(5, 0xeab308); // Rich golden frame
+        timerBgCircle.setStrokeStyle(5, 0xeab308);
 
-        // Ornate timer count
         this.timerText = this.add.text(width / 2, 58, '99', {
             fontFamily: '"Press Start 2P"',
             fontSize: '34px',
@@ -493,7 +600,6 @@ export default class BattleScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        // ROUND 1 pill capsule label below timer
         const roundCapsule = this.add.graphics();
         roundCapsule.fillStyle(0x27272a, 0.95);
         roundCapsule.lineStyle(2, 0xeab308, 0.85);
@@ -508,7 +614,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.hudContainer.add([timerBgCircle, this.timerText, roundCapsule, roundLabel]);
 
-        // Mute button helper
         this.muteButton = this.add.text(width - 40, 150, '🔊 MUTE (M)', {
             fontFamily: '"Press Start 2P"',
             fontSize: '11px',
@@ -528,7 +633,6 @@ export default class BattleScene extends Phaser.Scene {
     updateHUD() {
         const width = this.scale.width;
 
-        // Animate health bars
         const p1HWidth = (this.player1.health / this.player1.maxHealth) * 594;
         this.tweens.add({
             targets: this.h1Bar,
@@ -546,11 +650,9 @@ export default class BattleScene extends Phaser.Scene {
             ease: 'Quad.easeOut'
         });
 
-        // Color shifts health bars
         this.h1Bar.setFillStyle(this.player1.health < 30 ? 0xef4444 : (this.player1.health < 60 ? 0xeab308 : 0x22c55e));
         this.h2Bar.setFillStyle(this.player2.health < 30 ? 0xef4444 : (this.player2.health < 60 ? 0xeab308 : 0xf97316));
 
-        // P1 Super meter
         const p1SWidth = (this.player1.superMeter / 100) * 294;
         this.s1Bar.width = p1SWidth;
         this.s1Text.setText(`METER  ${Math.floor(this.player1.superMeter)}%`);
@@ -561,7 +663,6 @@ export default class BattleScene extends Phaser.Scene {
             this.s1Text.setFill('#a5b4fc');
         }
 
-        // P2 Super meter
         const p2SWidth = (this.player2.superMeter / 100) * 294;
         this.s2Bar.width = p2SWidth;
         this.s2Bar.x = width - 142 - p2SWidth;
@@ -581,7 +682,10 @@ export default class BattleScene extends Phaser.Scene {
 
         if (this.player2.isStunned) return;
 
-        // Move towards Player 1
+        if (dist > 250 && Math.random() > 0.95) {
+            this.player2.triggerProjectile();
+        }
+
         if (dist > 180) {
             const dir = this.player1.x > this.player2.x ? 1 : -1;
             this.player2.move(dir);
@@ -595,7 +699,7 @@ export default class BattleScene extends Phaser.Scene {
             if (this.player2.superMeter >= 100) {
                 this.triggerSuper(this.player2);
             } else if (this.player1.isAttacking && Math.random() < 0.3) {
-                this.player2.triggerSpecialShield();
+                //this.player2.triggerSpecialShield();
             } else if (now - this.player2.lastAttackTime > 350) {
                 this.player2.triggerAttack();
             }
@@ -604,11 +708,10 @@ export default class BattleScene extends Phaser.Scene {
 
 
     triggerSuper(fighter) {
-        fighter.triggerSuperMove();
+        //fighter.triggerSuperMove();
     }
 
     cheerSpectators() {
-        // Robed judges leap up excitedly waving tiny wooden gavels
         this.galleryJudges.forEach((judge, idx) => {
             this.tweens.add({
                 targets: judge,
@@ -619,7 +722,6 @@ export default class BattleScene extends Phaser.Scene {
                 ease: 'Back.easeOut'
             });
 
-            // Wiggle their tiny wooden gavels
             if (judge.tinyGavel) {
                 this.tweens.add({
                     targets: judge.tinyGavel,
@@ -636,7 +738,6 @@ export default class BattleScene extends Phaser.Scene {
         this.audioManager.playSFX(key);
     }
 
-    // High contrast arcade popping text
     showPopupText(x, y, text, color) {
         const style = {
             fontFamily: '"Press Start 2P"',
