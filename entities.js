@@ -5,7 +5,7 @@ export class Fighter extends Phaser.GameObjects.Container {
      * @param {Phaser.Scene} scene
      * @param {number} x
      * @param {number} y
-     * @param {string} characterId - 'roe' | 'wade'
+     * @param {string} characterId - 'roe' | 'wade' | 'cityman'
      * @param {boolean} isPlayer2
      * @param {boolean} isAI
      */
@@ -16,130 +16,141 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.isPlayer2 = isPlayer2;
         this.isAI = isAI;
 
-        // Core Combat Stats & Configuration
         this.maxHealth = 100;
         this.health = 100;
-        this.superMeter = 0; // 0 to 100
+        this.superMeter = 0;
         
-        // Fast Recovery Mechanics (low stun)
         this.isStunned = false;
-        this.stunDuration = 120; // 120ms Fast recovery
+        this.stunDuration = 180; // Slightly longer recovery tracking
         
-        // Archetype Physics Configs
-        this.speed = characterId === 'roe' ? 540 : 420; // Roe is agile, Wade is slow/heavy
-        this.jumpForce = characterId === 'roe' ? -1100 : -950;
-        this.doubleJumpForce = characterId === 'roe' ? -950 : -800;
-        this.jumpsRemaining = 2; // Double jump enabled
+        // City Man balanced configuration settings
+        this.speed = characterId === 'cityman' ? 490 : (characterId === 'roe' ? 540 : 420);
+        this.jumpForce = characterId === 'cityman' ? -1050 : (characterId === 'roe' ? -1100 : -950);
+        this.doubleJumpForce = characterId === 'cityman' ? -850 : (characterId === 'roe' ? -950 : -800);
+        this.jumpsRemaining = 2;
         this.isGrounded = false;
         
-        // Combat states
         this.isAttacking = false;
         this.isSuperActive = false;
         this.facingRight = !isPlayer2;
         this.lastAttackTime = 0;
-        this.attackCooldown = 280; // Fast trades
+        this.attackCooldown = 320;
         this.isBlocking = false;
-        
-        // Combo systems
-        this.comboStep = 0;
-        this.lastComboHitTime = 0;
-        this.comboResetDelay = 800; // ms
 
-        // Special shielding states
-        this.isPrivacyShieldActive = false;
-        this.isSovereignWallActive = false;
-
-        // Setup internal character naming and damage limits
         this.setupStats();
+        this.createModelVisuals();
+        this.createHitboxes();
 
-        // Build precise character design graphics
-        this.createVisuals();
-
-        // Speech bubble variables
-        this.speechBubble = null;
-
-        // Register with physics engine
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
         
-        // Rigid Body Physics setup
         this.body.setCollideWorldBounds(true);
-        this.body.setGravityY(2300); // Sharp, rapid combat gravity
-        this.body.setDragX(1300); // Quick precise movements
-        this.body.setSize(100, 210);
-        this.body.setOffset(-50, -210); // Offset adjusted to accurately register ground hits
+        this.body.setGravityY(2300);
+        this.body.setDragX(1300);
+        
+        // Collision container sizes matching character geometry scales
+        this.body.setSize(120, 240);
+        this.body.setOffset(-60, -240);
+    }
 
-        // Attack Hitbox attached locally to scene physics mapping
-        this.attackHitbox = this.scene.add.rectangle(0, -90, 170, 110, 0xff0000, 0);
+    setupStats() {
+        if (this.characterId === 'cityman') {
+            this.charName = 'City Man 3';
+            this.colorAccent = 0x22c55e; // Neon District Green Aura
+            this.damageNormal = 11;
+            this.isAnimatedSprite = true;
+        } else if (this.characterId === 'roe') {
+            this.charName = 'Jane Roe';
+            this.colorAccent = 0x60a5fa;
+            this.damageNormal = 8;
+            this.modelKey = 'char-roe';
+            this.isAnimatedSprite = false;
+        } else {
+            this.charName = 'Henry Wade';
+            this.colorAccent = 0xfca5a5;
+            this.damageNormal = 13;
+            this.modelKey = 'char-wade';
+            this.isAnimatedSprite = false;
+        }
+    }
+
+    createModelVisuals() {
+        if (this.isAnimatedSprite) {
+            // --- CITY MAN 3 ANIMATED SPRITE LAYER ---
+            this.spriteModel = this.scene.add.sprite(0, 0, 'cityman-idle');
+            this.spriteModel.setOrigin(0.5, 1);
+            this.spriteModel.setDisplaySize(200, 250); // Scale up cleanly on map grid
+            this.spriteModel.play('cityman_idle');
+        } else {
+            // Fallback for flat legacy image files
+            this.spriteModel = this.scene.add.sprite(0, 0, this.modelKey);
+            this.spriteModel.setOrigin(0.5, 1);
+            this.spriteModel.setDisplaySize(160, 250);
+        }
+
+        this.shieldAura = this.scene.add.graphics();
+        this.shieldAura.lineStyle(6, this.colorAccent, 0.85);
+        this.shieldAura.strokeCircle(0, -120, 120);
+        this.shieldAura.fillStyle(this.colorAccent, 0.15);
+        this.shieldAura.fillCircle(0, -120, 120);
+        this.shieldAura.setVisible(false);
+
+        this.add([this.spriteModel, this.shieldAura]);
+
+        this.nameTag = this.scene.add.text(0, -280, this.charName, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '13px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+        this.add(this.nameTag);
+
+        this.updateVisualFacing();
+    }
+
+    createHitboxes() {
+        this.attackHitbox = this.scene.add.rectangle(0, -120, 210, 120, 0xff0000, 0);
         this.scene.physics.add.existing(this.attackHitbox);
         this.attackHitbox.body.setAllowGravity(false);
         this.attackHitbox.body.setImmovable(true);
         this.disableAttackHitbox();
     }
 
-    setupStats() {
-        if (this.characterId === 'roe') {
-            this.charName = 'Jane Roe';
-            this.color = 0x2563eb; 
-            this.glowingColor = 0x60a5fa; 
-            this.damageNormal = 8;
-            this.voiceLines = [
-                "Precedent, not restriction!",
-                "Due Process is absolute!",
-                "Privacy is a fundamental right!"
-            ];
-        } else {
-            this.charName = 'Henry Wade';
-            this.color = 0xd92626; 
-            this.glowingColor = 0xfca5a5; 
-            this.damageNormal = 13; 
-            this.voiceLines = [
-                "Order must prevail!",
-                "The State has authority!",
-                "The law is absolute!"
-            ];
-        }
-    }
-
-    createVisuals() {
-        // Character Body Shape
-        this.bodyRect = this.scene.add.rectangle(0, -105, 80, 210, this.color);
-        this.bodyRect.setStrokeStyle(4, 0xffffff);
-
-        // Head Layout
-        this.headCircle = this.scene.add.circle(0, -240, 35, 0xfef08a);
-        this.headCircle.setStrokeStyle(3, 0xffffff);
-
-        // Add elements into container hierarchy
-        this.add([this.bodyRect, this.headCircle]);
-
-        // Name tag indicators attached overhead
-        this.nameTag = this.scene.add.text(0, -310, this.charName, {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '14px',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-        this.add(this.nameTag);
+    updateVisualFacing() {
+        this.spriteModel.scaleX = this.facingRight ? 1 : -1;
     }
 
     move(dir) {
-        if (this.isStunned || this.isAttacking || this.isPrivacyShieldActive || this.isSovereignWallActive) {
+        if (this.isStunned || this.isAttacking || this.isBlocking || this.isSuperActive) {
             this.body.setVelocityX(0);
             return;
         }
 
         this.body.setVelocityX(dir * this.speed);
         if (dir !== 0) {
-            this.facingRight = dir > 0;
-            this.bodyRect.scaleX = this.facingRight ? 1 : -1;
-            this.headCircle.scaleX = this.facingRight ? 1 : -1;
+            const requestedFacing = dir > 0;
+            if (this.facingRight !== requestedFacing) {
+                this.facingRight = requestedFacing;
+                this.updateVisualFacing();
+            }
+            
+            if (this.isAnimatedSprite && this.spriteModel.anims.currentAnim.key !== 'cityman_walk') {
+                this.spriteModel.play('cityman_walk');
+            } else if (!this.isAnimatedSprite) {
+                this.spriteModel.angle = Math.sin(this.scene.time.now * 0.02) * 4;
+            }
+        } else {
+            if (this.isAnimatedSprite && this.spriteModel.anims.currentAnim.key !== 'cityman_idle') {
+                this.spriteModel.play('cityman_idle');
+            } else if (!this.isAnimatedSprite) {
+                this.spriteModel.angle = 0;
+            }
         }
     }
 
     jump() {
-        if (this.isStunned || this.isPrivacyShieldActive || this.isSovereignWallActive) return;
+        if (this.isStunned || this.isBlocking || this.isSuperActive) return;
 
         if (this.isGrounded) {
             this.body.setVelocityY(this.jumpForce);
@@ -148,47 +159,57 @@ export class Fighter extends Phaser.GameObjects.Container {
         } else if (this.jumpsRemaining > 0) {
             this.body.setVelocityY(this.doubleJumpForce);
             this.jumpsRemaining = 0;
+            this.showJumpParticles();
         }
     }
 
     triggerAttack() {
         const now = this.scene.time.now;
-        if (this.isStunned || this.isAttacking || now - this.lastAttackTime < this.attackCooldown) return;
+        if (this.isStunned || this.isBlocking || this.isAttacking || now - this.lastAttackTime < this.attackCooldown) return;
 
         this.isAttacking = true;
         this.lastAttackTime = now;
 
-        // Apply slight lunge physics momentum forward on basic checks
-        const lunge = this.facingRight ? 300 : -300;
+        const lunge = this.facingRight ? 350 : -350;
         this.body.setVelocityX(lunge);
 
         this.enableAttackHitbox();
         this.showAttackFlash();
 
-        this.scene.time.delayedCall(150, () => {
-            this.disableAttackHitbox();
-            this.isAttacking = false;
-        });
+        if (this.isAnimatedSprite) {
+            this.spriteModel.play('cityman_attack');
+            this.spriteModel.once('animationcomplete', () => {
+                this.disableAttackHitbox();
+                this.isAttacking = false;
+                if (this.body.velocityX !== 0) this.spriteModel.play('cityman_walk');
+                else this.spriteModel.play('cityman_idle');
+            });
+        } else {
+            this.scene.tweens.add({
+                targets: this.spriteModel,
+                scaleX: this.facingRight ? 1.3 : -1.3,
+                scaleY: 1.1,
+                duration: 100,
+                yoyo: true,
+                onComplete: () => {
+                    this.updateVisualFacing();
+                    this.spriteModel.scaleY = 1;
+                    this.disableAttackHitbox();
+                    this.isAttacking = false;
+                }
+            });
+        }
     }
 
     triggerSpecialShield() {
-        if (this.isStunned || this.isAttacking) return;
+        if (this.isStunned || this.isAttacking || this.isSuperActive) return;
         this.isBlocking = true;
         this.body.setVelocityX(0);
-        
-        if (this.characterId === 'roe') {
-            this.isPrivacyShieldActive = true;
-        } else {
-            this.isSovereignWallActive = true;
-        }
-
-        this.bodyRect.setAlpha(0.5);
+        this.shieldAura.setVisible(true);
 
         this.scene.time.delayedCall(300, () => {
-            this.isPrivacyShieldActive = false;
-            this.isSovereignWallActive = false;
+            this.shieldAura.setVisible(false);
             this.isBlocking = false;
-            this.bodyRect.setAlpha(1);
         });
     }
 
@@ -199,22 +220,35 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.body.setVelocity(0, 0);
 
         this.scene.playSFX('super-charge');
-        this.scene.cameras.main.flash(300, this.color);
+        this.scene.cameras.main.flash(350, this.colorAccent);
 
-        // Huge structural attack projectile simulation 
-        const superZone = this.scene.add.rectangle(this.x + (this.facingRight ? 300 : -300), this.y - 100, 600, 200, this.color, 0.4);
+        const superZone = this.scene.add.rectangle(this.x + (this.facingRight ? 320 : -320), this.y - 120, 640, 240, this.colorAccent, 0.4);
+        superZone.setStrokeStyle(5, 0xffffff);
         this.scene.physics.add.existing(superZone);
         superZone.body.setAllowGravity(false);
 
+        if (this.isAnimatedSprite) {
+            this.spriteModel.play('cityman_attack');
+        } else {
+            this.scene.tweens.add({ targets: this.spriteModel, angle: this.facingRight ? 360 : -360, duration: 400 });
+        }
+
         const opponent = this.scene.player1 === this ? this.scene.player2 : this.scene.player1;
         
-        this.scene.time.delayedCall(150, () => {
+        this.scene.time.delayedCall(250, () => {
             if (this.scene.physics.overlap(superZone, opponent)) {
-                opponent.takeDamage(35, 'CRITICAL VERDICT!');
+                opponent.takeDamage(35, 'URBAN CRUSH!');
                 this.scene.cheerSpectators();
             }
-            superZone.destroy();
-            this.isSuperActive = false;
+            this.scene.tweens.add({
+                targets: superZone,
+                alpha: 0,
+                duration: 150,
+                onComplete: () => {
+                    superZone.destroy();
+                    this.isSuperActive = false;
+                }
+            });
         });
     }
 
@@ -222,22 +256,36 @@ export class Fighter extends Phaser.GameObjects.Container {
         if (this.isBlocking) {
             amount = Math.floor(amount * 0.15);
             this.scene.showPopupText(this.x, this.y - 280, 'BLOCKED!', '#ffffff');
+            return;
         }
 
         this.health = Math.max(0, this.health - amount);
         this.isStunned = true;
 
-        // Apply brief hitstun recoil
-        const pushDir = this.facingRight ? -250 : 250;
+        const pushDir = this.facingRight ? -280 : 280;
         this.body.setVelocityX(pushDir);
 
-        this.bodyRect.setFillStyle(0xff0000);
+        if (this.health <= 0 && this.isAnimatedSprite) {
+            this.spriteModel.play('cityman_dead');
+        } else if (this.isAnimatedSprite) {
+            this.spriteModel.play('cityman_hurt');
+            this.spriteModel.once('animationcomplete', () => {
+                this.isStunned = false;
+                this.spriteModel.play('cityman_idle');
+            });
+        } else {
+            this.spriteModel.setTint(0xef4444);
+        }
+
         this.scene.time.delayedCall(this.stunDuration, () => {
-            this.bodyRect.setFillStyle(this.color);
-            this.isStunned = false;
+            if (!this.isAnimatedSprite) {
+                this.spriteModel.clearTint();
+                this.isStunned = false;
+            } else if (this.health > 0) {
+                this.isStunned = false;
+            }
         });
 
-        // Generate damage popups
         this.scene.showPopupText(this.x, this.y - 240, `-${amount}`, '#ef4444');
         if (reason) {
             this.scene.showPopupText(this.x, this.y - 200, reason, '#fde047');
@@ -245,23 +293,18 @@ export class Fighter extends Phaser.GameObjects.Container {
     }
 
     showAttackFlash() {
-        const flashX = this.x + (this.facingRight ? 90 : -90);
-        const flashY = this.y - 105;
-        const flash = this.scene.add.circle(flashX, flashY, 40, this.glowingColor, 0.7);
+        const flashX = this.x + (this.facingRight ? 95 : -95);
+        const flashY = this.y - 120;
+        const flash = this.scene.add.circle(flashX, flashY, 45, this.colorAccent, 0.65);
         this.scene.tweens.add({
-            targets: flash,
-            scaleX: 1.8,
-            scaleY: 1.8,
-            alpha: 0,
-            duration: 120,
-            onComplete: () => flash.destroy()
+            targets: flash, scaleX: 2, scaleY: 2, alpha: 0, duration: 140, onComplete: () => flash.destroy()
         });
     }
 
     enableAttackHitbox() {
-        const offset = this.facingRight ? 90 : -90;
+        const offset = this.facingRight ? 100 : -100;
         this.attackHitbox.x = this.x + offset;
-        this.attackHitbox.y = this.y - 105;
+        this.attackHitbox.y = this.y - 120;
         this.attackHitbox.body.enable = true;
     }
 
@@ -274,12 +317,22 @@ export class Fighter extends Phaser.GameObjects.Container {
     }
 
     update() {
-        // Fast dynamic alignment tracking to manage floor check boundaries safely
         if (this.body.blocked.down || this.body.touching.down) {
             this.isGrounded = true;
             this.jumpsRemaining = 2;
         } else {
             this.isGrounded = false;
         }
+
+        if (this.isBlocking) {
+            this.shieldAura.alpha = 0.4 + (Math.sin(this.scene.time.now * 0.02) * 0.25);
+        }
+    }
+
+    showJumpParticles() {
+        const p = this.scene.add.circle(this.x, this.y, 16, 0xffffff, 0.5);
+        this.scene.tweens.add({
+            targets: p, scaleX: 3, scaleY: 0.3, alpha: 0, y: this.y + 12, duration: 220, onComplete: () => p.destroy()
+        });
     }
 }
