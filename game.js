@@ -156,6 +156,7 @@ export default class BattleScene extends Phaser.Scene {
         const totalSpan  = 660;
         const spacing    = totalSpan / (judgeCount - 1);
         const startX     = width / 2 - totalSpan / 2;
+        const benchTop   = 515;
 
         for (let i = 0; i < judgeCount; i++) {
             const jx = startX + i * spacing;
@@ -204,7 +205,7 @@ export default class BattleScene extends Phaser.Scene {
             tinyGavel.fillStyle(0x451a03, 1); // Oak mallet
             tinyGavel.fillRect(10, -22, 15, 8);
 
-            judgeContainer.add([robe, collar, face, wig, tinyGavel]);
+            judgeContainer.add([body, collar, head, wig, tinyGavel]);
             judgeContainer.tinyGavel = tinyGavel;
             judgeContainer.baseY = jy;
 
@@ -648,18 +649,18 @@ export default class BattleScene extends Phaser.Scene {
 
             if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) this.player2.jump();
 
-            const isP2AttackPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.attack) || 
-                                      Phaser.Input.Keyboard.JustDown(this.keysP2.attackNumpad);
+            const isP2AttackPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.kick) || 
+                                      Phaser.Input.Keyboard.JustDown(this.keysP2.kickRow);
             if (isP2AttackPressed) {
                 if (this.keysP2.down.isDown) {
                     this.player2.triggerSpecialShield();
                 } else {
-                    this.player2.triggerAttack();
+                    this.player2.doKick();
                 }
             }
 
             const isP2SuperPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.super) || 
-                                     Phaser.Input.Keyboard.JustDown(this.keysP2.superNumpad);
+                                     Phaser.Input.Keyboard.JustDown(this.keysP2.superRow);
             if (isP2SuperPressed) {
                 if (this.player2.superMeter >= 100) {
                     this.triggerSuper(this.player2);
