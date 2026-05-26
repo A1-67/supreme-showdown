@@ -54,9 +54,6 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // Background image files are optional. Use generated visual styling instead.
-        // 1. LOAD THE COURTROOM BACKGROUND IMAGE HERE
-        this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
-
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -95,14 +92,9 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
 
-        // 2. ADD THE BACKGROUND IMAGE AT THE VERY BOTTOM OF THE DEPTH STACK
-        const background = this.add.image(width / 2, height / 2, 'courtroom-bg');
-        background.setDisplaySize(width, height); // Scale to fit your 1920x1080 canvas
-        background.setDepth(-10); // Ensure it renders underneath UI, players, and judge containers
-
-        // OPTIONAL: Keep your existing ambient atmospheric overlays to shade your background image beautifully
+        // Generated procedural background for the courtroom
         const base = this.add.graphics();
-        base.fillStyle(0x101018, 0.2); // Lower opacity so the image shows through
+        base.fillStyle(0x101018, 1);
         base.fillRect(0, 0, width, height);
 
         const glow1 = this.add.graphics();
@@ -114,11 +106,6 @@ export default class BattleScene extends Phaser.Scene {
         glow2.fillEllipse(width * 0.75, height * 0.12, 500, 200);
 
         // Keep your stage floor graphic to visually anchor the ground collision box
-        const floor = this.add.graphics();
-        floor.fillStyle(0x1f2937, 1);
-        floor.fillRoundedRect(0, this.floorY + 60, width, height - this.floorY - 60, 28);
-    }
-
         const floor = this.add.graphics();
         floor.fillStyle(0x1f2937, 1);
         floor.fillRoundedRect(0, this.floorY + 60, width, height - this.floorY - 60, 28);
