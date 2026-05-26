@@ -9,10 +9,10 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     init() {
-        this.gameState = 'menu'; 
+        this.gameState = 'menu';
         this.fighters = [];
         this.floorY = 920; 
-        this.comboMeterGain = 12; 
+        this.comboMeterGain = 12;
         this.roundTimerValue = 99;
         this.timerEvent = null;
     }
@@ -21,7 +21,7 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
         
-        const loadingText = this.add.text(width / 2, height / 2 - 60, 'LOADING CONSTITUTIONAL EVIDENCE...', {
+        const loadingText = this.add.text(width / 2, height / 2 - 60, 'LOADING COMBAT CONTEXT...', {
             fontFamily: '"Press Start 2P"',
             fontSize: '20px',
             fill: '#fde047'
@@ -46,7 +46,22 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
+        // Background
         this.load.image('courtroom-bg', 'assets/courtroom-bg.webp');
+
+        // Traditional legacy characters
+        this.load.image('char-roe', 'https://labs.phaser.io/assets/sprites/asuna_by_poncho-d7bocju.png');
+        this.load.image('char-wade', 'https://labs.phaser.io/assets/sprites/buckyball.png');
+        
+        // --- PRELOADING CITY MAN 3 ANIMATED SPRITESHEETS ---
+        // Adjust frameWidth and frameHeight to match the pixel dimensions of one block in your PNGs
+        const frameConfig = { frameWidth: 128, frameHeight: 128 };
+        this.load.spritesheet('cityman-idle', 'City_men_3/Idle.png', frameConfig);
+        this.load.spritesheet('cityman-walk', 'City_men_3/Walk.png', frameConfig);
+        this.load.spritesheet('cityman-attack', 'City_men_3/Attack.png', frameConfig);
+        this.load.spritesheet('cityman-hurt', 'City_men_3/Hurt.png', frameConfig);
+        this.load.spritesheet('cityman-dead', 'City_men_3/Dead.png', frameConfig);
+
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -59,6 +74,9 @@ export default class BattleScene extends Phaser.Scene {
 
         this.bg = this.add.image(width / 2, height / 2, 'courtroom-bg');
         this.bg.setDisplaySize(width, height);
+
+        // --- DEFINE GLOBAL ANIMATIONS FOR CITY MAN 3 ---
+        this.createCityManAnimations();
 
         this.createCourtroomProps();
         this.createJudicialGallery();
@@ -73,13 +91,47 @@ export default class BattleScene extends Phaser.Scene {
         });
     }
 
+    createCityManAnimations() {
+        // Automatically reads all frames available inside the preloaded horizontal spritesheet
+        this.anims.create({
+            key: 'cityman_idle',
+            frames: this.anims.generateFrameNumbers('cityman-idle'),
+            frameRate: 8,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'cityman_walk',
+            frames: this.anims.generateFrameNumbers('cityman-walk'),
+            frameRate: 12,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'cityman_attack',
+            frames: this.anims.generateFrameNumbers('cityman-attack'),
+            frameRate: 16,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'cityman_hurt',
+            frames: this.anims.generateFrameNumbers('cityman-hurt'),
+            frameRate: 10,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'cityman_dead',
+            frames: this.anims.generateFrameNumbers('cityman-dead'),
+            frameRate: 6,
+            repeat: 0
+        });
+    }
+
     createCourtroomProps() {
         const width = this.scale.width;
-        
-        // Polished marble floor reflection overlay
         this.add.rectangle(width / 2, this.floorY + 80, width, 160, 0x1e1b4b, 0.12);
-        
-        // Static ground physics line 
         this.ground = this.add.rectangle(width / 2, this.floorY + 15, width, 30, 0x000000, 0);
         this.physics.add.existing(this.ground, true);
     }
@@ -93,11 +145,9 @@ export default class BattleScene extends Phaser.Scene {
             const jx = benchXStart + (i * 110);
             const jy = 515;
             const judgeContainer = this.add.container(jx, jy);
-            
             const body = this.add.graphics().fillStyle(0x111827, 1).fillRoundedRect(-25, 0, 50, 60, 6);
             const head = this.add.graphics().fillStyle(0xfde047, 1).fillCircle(0, -15, 16);
             judgeContainer.add([body, head]);
-
             this.add.existing(judgeContainer);
             this.galleryJudges.push(judgeContainer);
         }
@@ -108,7 +158,6 @@ export default class BattleScene extends Phaser.Scene {
         const height = this.scale.height;
 
         this.menuContainer = this.add.container(width / 2, height / 2);
-
         const logoBack = this.add.rectangle(0, -220, 950, 150, 0x18181b, 0.9).setStrokeStyle(6, 0xeab308);
         const titleText = this.add.text(0, -250, 'SUPREME SHOWDOWN', {
             fontFamily: '"Press Start 2P"', fontSize: '54px', fill: '#fde047', stroke: '#000000', strokeThickness: 8
@@ -131,7 +180,6 @@ export default class BattleScene extends Phaser.Scene {
     transitionToCharacterSelect() {
         this.menuContainer.destroy();
         this.gameState = 'character_select';
-        
         createCharacterSelectUI(this, (p1Id, p2Id, vsAI) => {
             this.startFight(p1Id, p2Id, vsAI);
         });
@@ -141,13 +189,10 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.gameState = 'fight';
 
-        // Instantiate both Fighters safely inside screen boundaries
         this.player1 = new Fighter(this, width * 0.25, this.floorY, p1Id, false, false);
         this.player2 = new Fighter(this, width * 0.75, this.floorY, p2Id, true, vsAI);
-        
         this.fighters = [this.player1, this.player2];
 
-        // ADD PHYSICS COLLIDERS TO PREVENT FALLING THROUGH FLOOR
         this.physics.add.collider(this.player1, this.ground);
         this.physics.add.collider(this.player2, this.ground);
         this.physics.add.collider(this.player1, this.player2);
@@ -175,154 +220,8 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.hudContainer = this.add.container(0, 0);
 
-        // Player 1 Health background bar
         this.add.rectangle(138, 43, 600, 34, 0x18181b).setOrigin(0, 0);
         this.h1Bar = this.add.rectangle(141, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
 
-        // Player 2 Health background bar
         this.add.rectangle(width - 738, 43, 600, 34, 0x18181b).setOrigin(0, 0);
-        this.h2Bar = this.add.rectangle(width - 735, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
-
-        // Timer text layout
-        this.timerText = this.add.text(width / 2, 60, '99', {
-            fontFamily: '"Press Start 2P"', fontSize: '40px', fill: '#ffffff'
-        }).setOrigin(0.5);
-
-        this.hudContainer.add([this.h1Bar, this.h2Bar, this.timerText]);
-
-        this.timerEvent = this.time.addEvent({
-            delay: 1000,
-            callback: () => {
-                if (this.roundTimerValue > 0 && this.gameState === 'fight') {
-                    this.roundTimerValue--;
-                    this.timerText.setText(this.roundTimerValue.toString());
-                    if (this.roundTimerValue === 0) this.checkVictoryCondition();
-                }
-            },
-            loop: true
-        });
-    }
-
-    announceRoundStart() {
-        const width = this.scale.width;
-        const height = this.scale.height;
-        
-        const text = this.add.text(width / 2, height / 2, 'ROUND 1... FIGHT!', {
-            fontFamily: '"Press Start 2P"', fontSize: '48px', fill: '#ef4444'
-        }).setOrigin(0.5);
-
-        this.time.delayedCall(1500, () => text.destroy());
-    }
-
-    showPopupText(x, y, text, color) {
-        const popup = this.add.text(x, y, text, {
-            fontFamily: '"Press Start 2P"', fontSize: '18px', fill: color, stroke: '#000000', strokeThickness: 4
-        }).setOrigin(0.5);
-
-        this.tweens.add({
-            targets: popup, y: y - 50, alpha: 0, duration: 800, onComplete: () => popup.destroy()
-        });
-    }
-
-    playSFX(key) {
-        this.audioManager.sounds[key]?.play();
-    }
-
-    cheerSpectators() {
-        this.playSFX('cheer-applause');
-    }
-
-    toggleMute() {
-        this.audioManager.toggleMute();
-    }
-
-    update() {
-        if (this.gameState !== 'fight') return;
-
-        this.player1.update();
-        this.player2.update();
-
-        // Player 1 Movement handling
-        if (this.keysP1.left.isDown) this.player1.move(-1);
-        else if (this.keysP1.right.isDown) this.player1.move(1);
-        else this.player1.move(0);
-
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.jump)) this.player1.jump();
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.attack)) this.player1.triggerAttack();
-        if (this.keysP1.down.isDown) this.player1.triggerSpecialShield();
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.super)) this.player1.triggerSuperMove();
-
-        // Player 2 Movement handling (or simple AI simulation)
-        if (this.player2.isAI) {
-            this.handleAI();
-        } else {
-            if (this.keysP2.left.isDown) this.player2.move(-1);
-            else if (this.keysP2.right.isDown) this.player2.move(1);
-            else this.player2.move(0);
-
-            if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) this.player2.jump();
-            if (Phaser.Input.Keyboard.JustDown(this.keysP2.attack)) this.player2.triggerAttack();
-            if (this.keysP2.down.isDown) this.player2.triggerSpecialShield();
-            if (Phaser.Input.Keyboard.JustDown(this.keysP2.super)) this.player2.triggerSuperMove();
-        }
-
-        this.checkAttackOverlaps();
-        this.updateHUD();
-    }
-
-    handleAI() {
-        const dist = Math.abs(this.player1.x - this.player2.x);
-        if (dist > 150) {
-            const dir = this.player1.x < this.player2.x ? -1 : 1;
-            this.player2.move(dir);
-        } else {
-            this.player2.move(0);
-            if (Math.random() < 0.05) this.player2.triggerAttack();
-        }
-    }
-
-    checkAttackOverlaps() {
-        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
-            this.player2.takeDamage(this.player1.damageNormal);
-            this.player1.superMeter = Math.min(100, this.player1.superMeter + this.comboMeterGain);
-            this.player1.disableAttackHitbox();
-        }
-        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
-            this.player1.takeDamage(this.player2.damageNormal);
-            this.player2.superMeter = Math.min(100, this.player2.superMeter + this.comboMeterGain);
-            this.player2.disableAttackHitbox();
-        }
-    }
-
-    updateHUD() {
-        const width = this.scale.width;
-        const p1HWidth = (this.player1.health / this.player1.maxHealth) * 594;
-        this.h1Bar.width = p1HWidth;
-
-        const p2HWidth = (this.player2.health / this.player2.maxHealth) * 594;
-        this.h2Bar.width = p2HWidth;
-        this.h2Bar.x = width - 138 - p2HWidth;
-        
-        if (this.player1.health <= 0 || this.player2.health <= 0) {
-            this.checkVictoryCondition();
-        }
-    }
-
-    checkVictoryCondition() {
-        this.gameState = 'verdict';
-        const winner = this.player1.health > 0 ? this.player1 : this.player2;
-        const loser = winner === this.player1 ? this.player2 : this.player1;
-
-        this.time.delayedCall(1000, () => {
-            showFinalVerdictScreen(this, 
-                { id: winner.characterId, name: winner.charName },
-                { id: loser.characterId, name: loser.charName },
-                () => this.restartBattle()
-            );
-        });
-    }
-
-    restartBattle() {
-        this.scene.restart();
-    }
-}
+        this.h2Bar = this.
