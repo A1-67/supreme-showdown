@@ -5,7 +5,7 @@ export class Fighter extends Phaser.GameObjects.Container {
      * @param {Phaser.Scene} scene
      * @param {number} x
      * @param {number} y
-     * @param {string} characterId - 'roe' | 'wade' | 'cityman'
+     * @param {string} characterId - 'roe' | 'wade'
      * @param {boolean} isPlayer2
      * @param {boolean} isAI
      */
@@ -16,17 +16,17 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.isPlayer2 = isPlayer2;
         this.isAI = isAI;
 
+        // Core Combat Stats & Configuration
         this.maxHealth = 100;
         this.health = 100;
         this.superMeter = 0;
         
         this.isStunned = false;
-        this.stunDuration = 180; // Slightly longer recovery tracking
+        this.stunDuration = 120;
         
-        // City Man balanced configuration settings
-        this.speed = characterId === 'cityman' ? 490 : (characterId === 'roe' ? 540 : 420);
-        this.jumpForce = characterId === 'cityman' ? -1050 : (characterId === 'roe' ? -1100 : -950);
-        this.doubleJumpForce = characterId === 'cityman' ? -850 : (characterId === 'roe' ? -950 : -800);
+        this.speed = characterId === 'roe' ? 540 : 420;
+        this.jumpForce = characterId === 'roe' ? -1100 : -950;
+        this.doubleJumpForce = characterId === 'roe' ? -950 : -800;
         this.jumpsRemaining = 2;
         this.isGrounded = false;
         
@@ -34,11 +34,11 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.isSuperActive = false;
         this.facingRight = !isPlayer2;
         this.lastAttackTime = 0;
-        this.attackCooldown = 320;
+        this.attackCooldown = 280;
         this.isBlocking = false;
 
         this.setupStats();
-        this.createModelVisuals();
+        this.createImportedModelVisuals();
         this.createHitboxes();
 
         this.scene.add.existing(this);
@@ -48,46 +48,34 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.body.setGravityY(2300);
         this.body.setDragX(1300);
         
-        // Collision container sizes matching character geometry scales
+        // Match physics box boundaries to the sprite size
         this.body.setSize(120, 240);
         this.body.setOffset(-60, -240);
     }
 
     setupStats() {
-        if (this.characterId === 'cityman') {
-            this.charName = 'City Man 3';
-            this.colorAccent = 0x22c55e; // Neon District Green Aura
-            this.damageNormal = 11;
-            this.isAnimatedSprite = true;
-        } else if (this.characterId === 'roe') {
+        if (this.characterId === 'roe') {
             this.charName = 'Jane Roe';
             this.colorAccent = 0x60a5fa;
             this.damageNormal = 8;
             this.modelKey = 'char-roe';
-            this.isAnimatedSprite = false;
         } else {
             this.charName = 'Henry Wade';
             this.colorAccent = 0xfca5a5;
             this.damageNormal = 13;
             this.modelKey = 'char-wade';
-            this.isAnimatedSprite = false;
         }
     }
 
-    createModelVisuals() {
-        if (this.isAnimatedSprite) {
-            // --- CITY MAN 3 ANIMATED SPRITE LAYER ---
-            this.spriteModel = this.scene.add.sprite(0, 0, 'cityman-idle');
-            this.spriteModel.setOrigin(0.5, 1);
-            this.spriteModel.setDisplaySize(200, 250); // Scale up cleanly on map grid
-            this.spriteModel.play('cityman_idle');
-        } else {
-            // Fallback for flat legacy image files
-            this.spriteModel = this.scene.add.sprite(0, 0, this.modelKey);
-            this.spriteModel.setOrigin(0.5, 1);
-            this.spriteModel.setDisplaySize(160, 250);
-        }
+    createImportedModelVisuals() {
+        // --- ADD THE LOADED CHARACTER SPRITE/MODEL TO CONTAINER ---
+        this.spriteModel = this.scene.add.sprite(0, 0, this.modelKey);
+        this.spriteModel.setOrigin(0.5, 1); // Ground origin alignment
 
+        // Adjust dimensions to fit the gameplay grid scale perfectly
+        this.spriteModel.setDisplaySize(160, 250);
+
+        // Blocking/Shield FX layer
         this.shieldAura = this.scene.add.graphics();
         this.shieldAura.lineStyle(6, this.colorAccent, 0.85);
         this.shieldAura.strokeCircle(0, -120, 120);
@@ -95,8 +83,10 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.shieldAura.fillCircle(0, -120, 120);
         this.shieldAura.setVisible(false);
 
+        // Pack elements into container layout
         this.add([this.spriteModel, this.shieldAura]);
 
+        // Overhead UI tag
         this.nameTag = this.scene.add.text(0, -280, this.charName, {
             fontFamily: '"Press Start 2P"',
             fontSize: '13px',
@@ -110,7 +100,7 @@ export class Fighter extends Phaser.GameObjects.Container {
     }
 
     createHitboxes() {
-        this.attackHitbox = this.scene.add.rectangle(0, -120, 210, 120, 0xff0000, 0);
+        this.attackHitbox = this.scene.add.rectangle(0, -120, 200, 120, 0xff0000, 0);
         this.scene.physics.add.existing(this.attackHitbox);
         this.attackHitbox.body.setAllowGravity(false);
         this.attackHitbox.body.setImmovable(true);
@@ -118,6 +108,7 @@ export class Fighter extends Phaser.GameObjects.Container {
     }
 
     updateVisualFacing() {
+        // Flip the loaded 2D model sprite depending on player position tracking
         this.spriteModel.scaleX = this.facingRight ? 1 : -1;
     }
 
@@ -135,17 +126,10 @@ export class Fighter extends Phaser.GameObjects.Container {
                 this.updateVisualFacing();
             }
             
-            if (this.isAnimatedSprite && this.spriteModel.anims.currentAnim.key !== 'cityman_walk') {
-                this.spriteModel.play('cityman_walk');
-            } else if (!this.isAnimatedSprite) {
-                this.spriteModel.angle = Math.sin(this.scene.time.now * 0.02) * 4;
-            }
+            // Walking tilt effect
+            this.spriteModel.angle = Math.sin(this.scene.time.now * 0.02) * 4;
         } else {
-            if (this.isAnimatedSprite && this.spriteModel.anims.currentAnim.key !== 'cityman_idle') {
-                this.spriteModel.play('cityman_idle');
-            } else if (!this.isAnimatedSprite) {
-                this.spriteModel.angle = 0;
-            }
+            this.spriteModel.angle = 0; // Reset idle angle
         }
     }
 
@@ -176,29 +160,20 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.enableAttackHitbox();
         this.showAttackFlash();
 
-        if (this.isAnimatedSprite) {
-            this.spriteModel.play('cityman_attack');
-            this.spriteModel.once('animationcomplete', () => {
+        // High speed forward attack punch scaling lunge tween
+        this.scene.tweens.add({
+            targets: this.spriteModel,
+            scaleX: this.facingRight ? 1.3 : -1.3,
+            scaleY: 1.1,
+            duration: 100,
+            yoyo: true,
+            onComplete: () => {
+                this.updateVisualFacing();
+                this.spriteModel.scaleY = 1;
                 this.disableAttackHitbox();
                 this.isAttacking = false;
-                if (this.body.velocityX !== 0) this.spriteModel.play('cityman_walk');
-                else this.spriteModel.play('cityman_idle');
-            });
-        } else {
-            this.scene.tweens.add({
-                targets: this.spriteModel,
-                scaleX: this.facingRight ? 1.3 : -1.3,
-                scaleY: 1.1,
-                duration: 100,
-                yoyo: true,
-                onComplete: () => {
-                    this.updateVisualFacing();
-                    this.spriteModel.scaleY = 1;
-                    this.disableAttackHitbox();
-                    this.isAttacking = false;
-                }
-            });
-        }
+            }
+        });
     }
 
     triggerSpecialShield() {
@@ -227,17 +202,18 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.scene.physics.add.existing(superZone);
         superZone.body.setAllowGravity(false);
 
-        if (this.isAnimatedSprite) {
-            this.spriteModel.play('cityman_attack');
-        } else {
-            this.scene.tweens.add({ targets: this.spriteModel, angle: this.facingRight ? 360 : -360, duration: 400 });
-        }
+        // Spin model texture during ultimate activation frame
+        this.scene.tweens.add({
+            targets: this.spriteModel,
+            angle: this.facingRight ? 360 : -360,
+            duration: 400
+        });
 
         const opponent = this.scene.player1 === this ? this.scene.player2 : this.scene.player1;
         
         this.scene.time.delayedCall(250, () => {
             if (this.scene.physics.overlap(superZone, opponent)) {
-                opponent.takeDamage(35, 'URBAN CRUSH!');
+                opponent.takeDamage(35, 'CRITICAL VERDICT!');
                 this.scene.cheerSpectators();
             }
             this.scene.tweens.add({
@@ -265,25 +241,10 @@ export class Fighter extends Phaser.GameObjects.Container {
         const pushDir = this.facingRight ? -280 : 280;
         this.body.setVelocityX(pushDir);
 
-        if (this.health <= 0 && this.isAnimatedSprite) {
-            this.spriteModel.play('cityman_dead');
-        } else if (this.isAnimatedSprite) {
-            this.spriteModel.play('cityman_hurt');
-            this.spriteModel.once('animationcomplete', () => {
-                this.isStunned = false;
-                this.spriteModel.play('cityman_idle');
-            });
-        } else {
-            this.spriteModel.setTint(0xef4444);
-        }
-
+        this.spriteModel.setTint(0xef4444); // Flash imported texture red on hit
         this.scene.time.delayedCall(this.stunDuration, () => {
-            if (!this.isAnimatedSprite) {
-                this.spriteModel.clearTint();
-                this.isStunned = false;
-            } else if (this.health > 0) {
-                this.isStunned = false;
-            }
+            this.spriteModel.clearTint();
+            this.isStunned = false;
         });
 
         this.scene.showPopupText(this.x, this.y - 240, `-${amount}`, '#ef4444');
