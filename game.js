@@ -54,6 +54,9 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // Background image files are optional. Use generated visual styling instead.
+        // 1. LOAD THE COURTROOM BACKGROUND IMAGE HERE
+        this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
+
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
