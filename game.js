@@ -53,8 +53,7 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
-        this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
-
+        // Background image files are optional. Use generated visual styling instead.
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -65,20 +64,56 @@ export default class BattleScene extends Phaser.Scene {
 
         this.audioManager.init();
 
-        this.bg = this.add.image(width / 2, height / 2, 'courtroom-bg');
-        this.bg.setDisplaySize(width, height);
-
+        this.createProceduralBackground();
         this.createCourtroomProps();
         this.createJudicialGallery();
         this.createMainMenu();
 
+        this.musicHintText = this.add.text(width / 2, height - 40, 'CLICK ANYWHERE TO ENABLE AUDIO', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '16px',
+            fill: '#facc15'
+        }).setOrigin(0.5).setDepth(20);
+
         this.input.once('pointerdown', () => {
             this.audioManager.playMusic();
+            if (this.musicHintText) {
+                this.musicHintText.destroy();
+                this.musicHintText = null;
+            }
         });
 
         this.input.keyboard.on('keydown-M', () => {
             this.toggleMute();
         });
+    }
+
+    createProceduralBackground() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        const base = this.add.graphics();
+        base.fillStyle(0x101018, 1);
+        base.fillRect(0, 0, width, height);
+
+        const glow1 = this.add.graphics();
+        glow1.fillStyle(0xf59e0b, 0.08);
+        glow1.fillEllipse(width * 0.3, height * 0.18, 520, 220);
+
+        const glow2 = this.add.graphics();
+        glow2.fillStyle(0x7c3aed, 0.06);
+        glow2.fillEllipse(width * 0.75, height * 0.12, 500, 200);
+
+        const stripe = this.add.graphics();
+        stripe.fillStyle(0x273147, 0.15);
+        const stripeWidth = 80;
+        for (let x = 0; x < width; x += stripeWidth * 2) {
+            stripe.fillRect(x, 0, stripeWidth, height);
+        }
+
+        const floor = this.add.graphics();
+        floor.fillStyle(0x1f2937, 1);
+        floor.fillRoundedRect(0, this.floorY + 60, width, height - this.floorY - 60, 28);
     }
 
     createCourtroomProps() {

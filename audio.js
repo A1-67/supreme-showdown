@@ -8,27 +8,28 @@ export class AudioManager {
     constructor(scene) {
         this.scene = scene;
         this.muted = false;
-        this.musicVolume = 0.4;
+        this.musicVolume = 0.28;
         this.sfxVolume = 0.6;
-        
+
         this.music = null;
         this.sounds = {};
+        this.audioContext = null;
+        this.musicNodes = null;
+        this.musicInterval = null;
     }
 
     preload() {
-        // Load generated audio files
-        this.scene.load.audio('court-battle', 'assets/audio/court-battle.mp3');
-        this.scene.load.audio('gavel-hit', 'assets/audio/gavel-hit.mp3');
-        this.scene.load.audio('cheer-applause', 'assets/audio/cheer-applause.mp3');
-        this.scene.load.audio('super-charge', 'assets/audio/super-charge.mp3');
+        // External audio assets are optional. Procedural playback is used when files are unavailable.
     }
 
     init() {
-        // Setup background music
+        this.createAudioContext();
+
         try {
             this.music = this.scene.sound.add('court-battle', { loop: true, volume: this.musicVolume });
         } catch (e) {
-            console.warn('Failed to register court-battle track', e);
+            console.warn('Court-battle asset music unavailable, using procedural music.', e);
+            this.music = null;
         }
 
         const sfxKeys = ['gavel-hit', 'cheer-applause', 'super-charge'];
@@ -36,25 +37,110 @@ export class AudioManager {
             try {
                 this.sounds[key] = this.scene.sound.add(key, { volume: this.sfxVolume });
             } catch (e) {
-                console.warn(`Failed to register sound: ${key}`, e);
+                console.warn(`Asset SFX unavailable: ${key}`, e);
             }
         });
     }
 
+    createAudioContext() {
+        if (this.audioContext) return;
+        const ctx = window.AudioContext || window.webkitAudioContext;
+        if (!ctx) return;
+        this.audioContext = new ctx();
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {
+                // Ignore resume failures until first gesture.
+            });
+        }
+    }
+
     playMusic() {
         if (this.muted) return;
-        if (this.music && !this.music.isPlaying) {
-            try {
-                this.music.play();
-            } catch (e) {
-                console.warn('Playback blocked by browser audio policy. Will retry on first user input.');
+        this.createAudioContext();
+
+        if (this.music) {
+            if (!this.music.isPlaying) {
+                try {
+                    this.music.play();
+                } catch (e) {
+                    console.warn('Browser blocked asset music playback, switching to procedural music.', e);
+                    this.startProceduralMusic();
+                }
             }
+            return;
         }
+
+        this.startProceduralMusic();
+    }
+
+    startProceduralMusic() {
+        if (!this.audioContext || this.muted) return;
+        if (this.musicNodes) return;
+
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+        }
+
+        const gain = this.audioContext.createGain();
+        gain.gain.value = this.musicVolume;
+        gain.connect(this.audioContext.destination);
+
+        const root = 110;
+        const melodyNotes = [root * 2, root * 2.25, root * 2.5, root * 3];
+
+        const oscillators = melodyNotes.map((frequency, index) => {
+            const osc = this.audioContext.createOscillator();
+            osc.type = index % 2 === 0 ? 'triangle' : 'sine';
+            osc.frequency.value = frequency;
+            osc.originalFrequency = frequency;
+            osc.connect(gain);
+            osc.start();
+            return osc;
+        });
+
+        const bass = this.audioContext.createOscillator();
+        bass.type = 'square';
+        bass.frequency.value = root;
+        bass.originalFrequency = root;
+        bass.connect(gain);
+        bass.start();
+        oscillators.push(bass);
+
+        this.musicNodes = { oscillators, gain };
+
+        this.musicInterval = setInterval(() => {
+            oscillators.forEach((osc, index) => {
+                const detune = (index % 2 === 0 ? 1 : -1) * 12;
+                const target = osc.originalFrequency + detune;
+                osc.frequency.setValueAtTime(target, this.audioContext.currentTime);
+                setTimeout(() => {
+                    if (this.audioContext && osc) {
+                        osc.frequency.setValueAtTime(osc.originalFrequency, this.audioContext.currentTime + 0.24);
+                    }
+                }, 240);
+            });
+        }, 500);
     }
 
     stopMusic() {
         if (this.music && this.music.isPlaying) {
             this.music.stop();
+        }
+
+        if (this.musicNodes) {
+            this.musicNodes.oscillators.forEach((osc) => {
+                try {
+                    osc.stop();
+                } catch (_) {
+                    // ignore already stopped oscillators
+                }
+            });
+            this.musicNodes = null;
+        }
+
+        if (this.musicInterval) {
+            clearInterval(this.musicInterval);
+            this.musicInterval = null;
         }
     }
 
@@ -64,10 +150,10 @@ export class AudioManager {
             try {
                 this.sounds[key].play();
             } catch (e) {
-                console.warn(`Failed to play SFX: ${key}`, e);
+                console.warn(`Failed to play asset SFX: ${key}, falling back to generated FX.`, e);
+                this.playProceduralSFX(key);
             }
         } else {
-            // Procedural fallback SFX using browser synthesizer to ensure auditory feedback
             this.playProceduralSFX(key);
         }
     }
@@ -79,53 +165,46 @@ export class AudioManager {
             const audioCtx = new ctx();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
 
             if (key === 'gavel-hit') {
-                // Short low frequency woodblock tap
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.15);
-                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.16);
+                gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.16);
                 osc.start();
-                osc.stop(audioCtx.currentTime + 0.16);
+                osc.stop(audioCtx.currentTime + 0.17);
             } else if (key === 'super-charge') {
-                // Rising laser power-up
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(760, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
                 gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.5);
             } else if (key === 'cheer-applause') {
-                // Procedural white noise burst for applause
-                const bufferSize = audioCtx.sampleRate * 0.8;
+                const bufferSize = audioCtx.sampleRate * 0.7;
                 const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
                 }
                 const noise = audioCtx.createBufferSource();
                 noise.buffer = buffer;
-
                 const filter = audioCtx.createBiquadFilter();
                 filter.type = 'bandpass';
-                filter.frequency.value = 1000;
-                filter.Q.value = 1.0;
-
+                filter.frequency.value = 1200;
+                filter.Q.value = 1.2;
                 const noiseGain = audioCtx.createGain();
-                noiseGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
-
+                noiseGain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.7);
                 noise.connect(filter);
                 filter.connect(noiseGain);
                 noiseGain.connect(audioCtx.destination);
                 noise.start();
-                noise.stop(audioCtx.currentTime + 0.8);
+                noise.stop(audioCtx.currentTime + 0.7);
             }
         } catch (err) {
             console.error('Procedural audio failed:', err);
@@ -138,13 +217,21 @@ export class AudioManager {
             if (this.music && this.music.isPlaying) {
                 this.music.pause();
             }
+            if (this.audioContext && this.audioContext.state === 'running') {
+                this.audioContext.suspend().catch(() => {});
+            }
         } else {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                this.audioContext.resume().catch(() => {});
+            }
             if (this.music) {
                 if (this.music.isPaused) {
                     this.music.resume();
                 } else {
                     this.playMusic();
                 }
+            } else {
+                this.startProceduralMusic();
             }
         }
         return this.muted;
