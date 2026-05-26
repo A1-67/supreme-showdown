@@ -9,10 +9,10 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     init() {
-        this.gameState = 'menu';
+        this.gameState = 'menu'; 
         this.fighters = [];
         this.floorY = 920; 
-        this.comboMeterGain = 12;
+        this.comboMeterGain = 12; 
         this.roundTimerValue = 99;
         this.timerEvent = null;
     }
@@ -46,14 +46,7 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
-        // Background texture
         this.load.image('courtroom-bg', 'assets/courtroom-bg.webp');
-
-        // --- IMPORTING CHARACTER MODEL TEXTURES ---
-        // Replace these URLs with local relative files (e.g., 'assets/roe.png') when ready.
-        this.load.image('char-roe', 'https://labs.phaser.io/assets/sprites/asuna_by_poncho-d7bocju.png');
-        this.load.image('char-wade', 'https://labs.phaser.io/assets/sprites/buckyball.png');
-        
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -82,7 +75,11 @@ export default class BattleScene extends Phaser.Scene {
 
     createCourtroomProps() {
         const width = this.scale.width;
+        
+        // Polished marble floor reflection overlay
         this.add.rectangle(width / 2, this.floorY + 80, width, 160, 0x1e1b4b, 0.12);
+        
+        // Static ground physics line 
         this.ground = this.add.rectangle(width / 2, this.floorY + 15, width, 30, 0x000000, 0);
         this.physics.add.existing(this.ground, true);
     }
@@ -96,9 +93,11 @@ export default class BattleScene extends Phaser.Scene {
             const jx = benchXStart + (i * 110);
             const jy = 515;
             const judgeContainer = this.add.container(jx, jy);
+            
             const body = this.add.graphics().fillStyle(0x111827, 1).fillRoundedRect(-25, 0, 50, 60, 6);
             const head = this.add.graphics().fillStyle(0xfde047, 1).fillCircle(0, -15, 16);
             judgeContainer.add([body, head]);
+
             this.add.existing(judgeContainer);
             this.galleryJudges.push(judgeContainer);
         }
@@ -109,6 +108,7 @@ export default class BattleScene extends Phaser.Scene {
         const height = this.scale.height;
 
         this.menuContainer = this.add.container(width / 2, height / 2);
+
         const logoBack = this.add.rectangle(0, -220, 950, 150, 0x18181b, 0.9).setStrokeStyle(6, 0xeab308);
         const titleText = this.add.text(0, -250, 'SUPREME SHOWDOWN', {
             fontFamily: '"Press Start 2P"', fontSize: '54px', fill: '#fde047', stroke: '#000000', strokeThickness: 8
@@ -131,6 +131,7 @@ export default class BattleScene extends Phaser.Scene {
     transitionToCharacterSelect() {
         this.menuContainer.destroy();
         this.gameState = 'character_select';
+        
         createCharacterSelectUI(this, (p1Id, p2Id, vsAI) => {
             this.startFight(p1Id, p2Id, vsAI);
         });
@@ -140,10 +141,13 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.gameState = 'fight';
 
+        // Instantiate both Fighters safely inside screen boundaries
         this.player1 = new Fighter(this, width * 0.25, this.floorY, p1Id, false, false);
         this.player2 = new Fighter(this, width * 0.75, this.floorY, p2Id, true, vsAI);
+        
         this.fighters = [this.player1, this.player2];
 
+        // ADD PHYSICS COLLIDERS TO PREVENT FALLING THROUGH FLOOR
         this.physics.add.collider(this.player1, this.ground);
         this.physics.add.collider(this.player2, this.ground);
         this.physics.add.collider(this.player1, this.player2);
@@ -171,12 +175,15 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.hudContainer = this.add.container(0, 0);
 
+        // Player 1 Health background bar
         this.add.rectangle(138, 43, 600, 34, 0x18181b).setOrigin(0, 0);
         this.h1Bar = this.add.rectangle(141, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
 
+        // Player 2 Health background bar
         this.add.rectangle(width - 738, 43, 600, 34, 0x18181b).setOrigin(0, 0);
         this.h2Bar = this.add.rectangle(width - 735, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
 
+        // Timer text layout
         this.timerText = this.add.text(width / 2, 60, '99', {
             fontFamily: '"Press Start 2P"', fontSize: '40px', fill: '#ffffff'
         }).setOrigin(0.5);
@@ -199,9 +206,11 @@ export default class BattleScene extends Phaser.Scene {
     announceRoundStart() {
         const width = this.scale.width;
         const height = this.scale.height;
+        
         const text = this.add.text(width / 2, height / 2, 'ROUND 1... FIGHT!', {
             fontFamily: '"Press Start 2P"', fontSize: '48px', fill: '#ef4444'
         }).setOrigin(0.5);
+
         this.time.delayedCall(1500, () => text.destroy());
     }
 
@@ -209,6 +218,7 @@ export default class BattleScene extends Phaser.Scene {
         const popup = this.add.text(x, y, text, {
             fontFamily: '"Press Start 2P"', fontSize: '18px', fill: color, stroke: '#000000', strokeThickness: 4
         }).setOrigin(0.5);
+
         this.tweens.add({
             targets: popup, y: y - 50, alpha: 0, duration: 800, onComplete: () => popup.destroy()
         });
@@ -232,6 +242,7 @@ export default class BattleScene extends Phaser.Scene {
         this.player1.update();
         this.player2.update();
 
+        // Player 1 Movement handling
         if (this.keysP1.left.isDown) this.player1.move(-1);
         else if (this.keysP1.right.isDown) this.player1.move(1);
         else this.player1.move(0);
@@ -241,6 +252,7 @@ export default class BattleScene extends Phaser.Scene {
         if (this.keysP1.down.isDown) this.player1.triggerSpecialShield();
         if (Phaser.Input.Keyboard.JustDown(this.keysP1.super)) this.player1.triggerSuperMove();
 
+        // Player 2 Movement handling (or simple AI simulation)
         if (this.player2.isAI) {
             this.handleAI();
         } else {
