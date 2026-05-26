@@ -12,7 +12,7 @@ export class Fighter extends Phaser.GameObjects.Container {
     constructor(scene, x, y, characterId, isPlayer2 = false, isAI = false) {
         super(scene, x, y);
         this.scene = scene;
-        this.characterId = characterId; // Preserves the exact selected character configuration
+        this.characterId = characterId;
         this.isPlayer2 = isPlayer2;
         this.isAI = isAI;
 
@@ -27,69 +27,94 @@ export class Fighter extends Phaser.GameObjects.Container {
         
         // Archetype Physics Configs
         this.speed = characterId === 'roe' ? 540 : 420; // Roe is agile, Wade is slow/heavy
-        this.jumpForce = characterId === 'roe' ? -1000 : -850;
-        this.doubleJumpForce = characterId === 'roe' ? -900 : -750;
+        this.jumpForce = characterId === 'roe' ? -1100 : -950;
+        this.doubleJumpForce = characterId === 'roe' ? -950 : -800;
         this.jumpsRemaining = 2; // Double jump enabled
         this.isGrounded = false;
         
-        // Combat Timers & Attack State
+        // Combat states
         this.isAttacking = false;
-        this.attackComboStage = 0; // 0, 1, 2 for 3-hit standard combos
+        this.isSuperActive = false;
+        this.facingRight = !isPlayer2;
         this.lastAttackTime = 0;
+        this.attackCooldown = 280; // Fast trades
         this.isBlocking = false;
-        this.superMoveActive = false;
+        
+        // Combo systems
+        this.comboStep = 0;
+        this.lastComboHitTime = 0;
+        this.comboResetDelay = 800; // ms
 
+        // Special shielding states
+        this.isPrivacyShieldActive = false;
+        this.isSovereignWallActive = false;
+
+        // Setup internal character naming and damage limits
         this.setupStats();
+
+        // Build precise character design graphics
         this.createVisuals();
-        this.createHitboxes();
+
+        // Speech bubble variables
+        this.speechBubble = null;
+
+        // Register with physics engine
+        this.scene.add.existing(this);
+        this.scene.physics.add.existing(this);
+        
+        // Rigid Body Physics setup
+        this.body.setCollideWorldBounds(true);
+        this.body.setGravityY(2300); // Sharp, rapid combat gravity
+        this.body.setDragX(1300); // Quick precise movements
+        this.body.setSize(100, 210);
+        this.body.setOffset(-50, -210); // Offset adjusted to accurately register ground hits
+
+        // Attack Hitbox attached locally to scene physics mapping
+        this.attackHitbox = this.scene.add.rectangle(0, -90, 170, 110, 0xff0000, 0);
+        this.scene.physics.add.existing(this.attackHitbox);
+        this.attackHitbox.body.setAllowGravity(false);
+        this.attackHitbox.body.setImmovable(true);
+        this.disableAttackHitbox();
     }
 
     setupStats() {
-        // Safe check initialization using incoming component criteria
         if (this.characterId === 'roe') {
             this.charName = 'Jane Roe';
-            this.damageNormal = 7;
-            this.damageSuper = 32;
-            this.glowingColor = 0x3b82f6; // Blue Justice theme
-            this.attackText = 'PRIVACY RIGHT!';
-            this.superText = 'SUBSTANTIVE DUE PROCESS!!!';
+            this.color = 0x2563eb; 
+            this.glowingColor = 0x60a5fa; 
+            this.damageNormal = 8;
+            this.voiceLines = [
+                "Precedent, not restriction!",
+                "Due Process is absolute!",
+                "Privacy is a fundamental right!"
+            ];
         } else {
-            // FIXED: Removed the forced hardcoded ID overwrite bug
             this.charName = 'Henry Wade';
-            this.damageNormal = 11; // Hits harder but moves slower
-            this.damageSuper = 40;
-            this.glowingColor = 0xef4444; // Red State Power theme
-            this.attackText = 'POLICE POWER!';
-            this.superText = 'SOVEREIGN INTEREST!!!';
+            this.color = 0xd92626; 
+            this.glowingColor = 0xfca5a5; 
+            this.damageNormal = 13; 
+            this.voiceLines = [
+                "Order must prevail!",
+                "The State has authority!",
+                "The law is absolute!"
+            ];
         }
-        this.facingRight = !this.isPlayer2;
     }
 
     createVisuals() {
-        // Base Character Block Body (1080p high fidelity alignment)
-        this.bodyRect = this.scene.add.rectangle(0, -90, 80, 180, this.glowingColor);
+        // Character Body Shape
+        this.bodyRect = this.scene.add.rectangle(0, -105, 80, 210, this.color);
         this.bodyRect.setStrokeStyle(4, 0xffffff);
 
-        // Character Ornate Head Layout
-        this.headCircle = this.scene.add.circle(0, -210, 35, 0xfef08a);
+        // Head Layout
+        this.headCircle = this.scene.add.circle(0, -240, 35, 0xfef08a);
         this.headCircle.setStrokeStyle(3, 0xffffff);
 
-        // Gavel / Legal Scales insignia vector branding on chest
-        this.insignia = this.scene.add.graphics();
-        this.insignia.lineStyle(3, 0xffffff, 0.7);
-        this.insignia.lineBetween(-15, -100, 15, -100);
-        this.insignia.lineBetween(0, -115, 0, -75);
-
-        // Shield aura layout initialization (hidden by default)
-        this.shieldGraphic = this.scene.add.circle(0, -90, 110, 0xffffff, 0);
-        this.shieldGraphic.setStrokeStyle(5, this.glowingColor);
-        this.shieldGraphic.setVisible(false);
-
-        // Add visual assets into local container coordinates hierarchy
-        this.add([this.bodyRect, this.headCircle, this.insignia, this.shieldGraphic]);
+        // Add elements into container hierarchy
+        this.add([this.bodyRect, this.headCircle]);
 
         // Name tag indicators attached overhead
-        this.nameTag = this.scene.add.text(0, -280, this.charName, {
+        this.nameTag = this.scene.add.text(0, -310, this.charName, {
             fontFamily: '"Press Start 2P"',
             fontSize: '14px',
             fill: '#ffffff',
@@ -99,34 +124,22 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.add(this.nameTag);
     }
 
-    createHitboxes() {
-        // Instantiate invisible physical zone for standard attacks
-        this.attackHitbox = this.scene.add.rectangle(-5000, -5000, 110, 90, 0xffffff, 0);
-        this.scene.physics.add.existing(this.attackHitbox);
-        this.attackHitbox.body.setAllowGravity(false);
-        this.attackHitbox.body.enable = false;
-    }
-
-    move(direction) {
-        if (this.isStunned || this.isAttacking || this.isBlocking || this.superMoveActive) {
+    move(dir) {
+        if (this.isStunned || this.isAttacking || this.isPrivacyShieldActive || this.isSovereignWallActive) {
+            this.body.setVelocityX(0);
             return;
         }
 
-        if (direction !== 0) {
-            this.body.setVelocityX(direction * this.speed);
-            this.facingRight = direction > 0;
-            
-            // Flip graphics smoothly depending on travel heading
+        this.body.setVelocityX(dir * this.speed);
+        if (dir !== 0) {
+            this.facingRight = dir > 0;
             this.bodyRect.scaleX = this.facingRight ? 1 : -1;
             this.headCircle.scaleX = this.facingRight ? 1 : -1;
-        } else {
-            // Fast slide damping for precision combat handling
-            this.body.setVelocityX(0);
         }
     }
 
     jump() {
-        if (this.isStunned || this.isBlocking || this.superMoveActive) return;
+        if (this.isStunned || this.isPrivacyShieldActive || this.isSovereignWallActive) return;
 
         if (this.isGrounded) {
             this.body.setVelocityY(this.jumpForce);
@@ -135,143 +148,105 @@ export class Fighter extends Phaser.GameObjects.Container {
         } else if (this.jumpsRemaining > 0) {
             this.body.setVelocityY(this.doubleJumpForce);
             this.jumpsRemaining = 0;
-            this.showJumpParticles();
         }
     }
 
     triggerAttack() {
         const now = this.scene.time.now;
-        if (this.isStunned || this.isBlocking || this.isAttacking || this.superMoveActive) return;
+        if (this.isStunned || this.isAttacking || now - this.lastAttackTime < this.attackCooldown) return;
 
         this.isAttacking = true;
         this.lastAttackTime = now;
 
-        // Multi-stage branching combo animation scaling
-        this.attackComboStage = (this.attackComboStage + 1) % 3;
-        
-        // lunge slightly forward on physical lunges
-        const lungeVel = this.facingRight ? 250 : -250;
-        this.body.setVelocityX(lungeVel);
+        // Apply slight lunge physics momentum forward on basic checks
+        const lunge = this.facingRight ? 300 : -300;
+        this.body.setVelocityX(lunge);
 
-        this.showAttackFlash();
         this.enableAttackHitbox();
+        this.showAttackFlash();
 
-        // Standard short combat execution duration window
-        this.scene.time.delayedCall(160, () => {
+        this.scene.time.delayedCall(150, () => {
             this.disableAttackHitbox();
             this.isAttacking = false;
-            this.body.setVelocityX(0);
         });
     }
 
     triggerSpecialShield() {
-        if (this.isStunned || this.isAttacking || this.superMoveActive) return;
-
+        if (this.isStunned || this.isAttacking) return;
         this.isBlocking = true;
         this.body.setVelocityX(0);
-        this.shieldGraphic.setVisible(true);
-        this.shieldGraphic.setAlpha(0.85);
+        
+        if (this.characterId === 'roe') {
+            this.isPrivacyShieldActive = true;
+        } else {
+            this.isSovereignWallActive = true;
+        }
 
-        // Block holds stance lock briefly 
+        this.bodyRect.setAlpha(0.5);
+
         this.scene.time.delayedCall(300, () => {
-            this.shieldGraphic.setVisible(false);
+            this.isPrivacyShieldActive = false;
+            this.isSovereignWallActive = false;
             this.isBlocking = false;
+            this.bodyRect.setAlpha(1);
         });
     }
 
     triggerSuperMove() {
-        if (this.isStunned || this.superMoveActive) return;
-
-        this.superMoveActive = true;
-        this.superMeter = 0; // Burn the entire super block meter cleanly
+        if (this.superMeter < 100 || this.isStunned || this.isSuperActive) return;
+        this.superMeter = 0;
+        this.isSuperActive = true;
         this.body.setVelocity(0, 0);
 
         this.scene.playSFX('super-charge');
+        this.scene.cameras.main.flash(300, this.color);
 
-        // Cinematic screen freeze zoom effect representation
-        this.scene.cameras.main.flash(400, this.glowingColor & 0xffffff);
-
-        // Huge structural attack projectile simulation dimension boundaries
-        const superZone = this.scene.add.rectangle(this.x, this.y - 90, 650, 250, this.glowingColor, 0.35);
-        superZone.setStrokeStyle(4, 0xffffff);
+        // Huge structural attack projectile simulation 
+        const superZone = this.scene.add.rectangle(this.x + (this.facingRight ? 300 : -300), this.y - 100, 600, 200, this.color, 0.4);
         this.scene.physics.add.existing(superZone);
         superZone.body.setAllowGravity(false);
 
-        // Align super attack offset relative to fighter facing aspect direction
-        if (!this.facingRight) {
-            superZone.x -= 250;
-        } else {
-            superZone.x += 250;
-        }
-
-        this.scene.showPopupText(this.x, this.y - 320, this.superText, '#fde047');
-
-        // Check for immediate super hit registration overlap boundaries against opposing player
         const opponent = this.scene.player1 === this ? this.scene.player2 : this.scene.player1;
         
-        this.scene.time.delayedCall(100, () => {
+        this.scene.time.delayedCall(150, () => {
             if (this.scene.physics.overlap(superZone, opponent)) {
-                opponent.takeDamage(this.damageSuper, 'CRITICAL VERDICT!');
+                opponent.takeDamage(35, 'CRITICAL VERDICT!');
                 this.scene.cheerSpectators();
             }
-        });
-
-        this.scene.time.delayedCall(600, () => {
             superZone.destroy();
-            this.superMoveActive = false;
+            this.isSuperActive = false;
         });
     }
 
     takeDamage(amount, reason = '') {
         if (this.isBlocking) {
-            // Mitigate damage heavily if blocking
             amount = Math.floor(amount * 0.15);
             this.scene.showPopupText(this.x, this.y - 280, 'BLOCKED!', '#ffffff');
-            return;
         }
 
         this.health = Math.max(0, this.health - amount);
         this.isStunned = true;
 
-        // Apply brief hitstun backward recoil push mechanics
-        const pushDir = this.facingRight ? -300 : 300;
+        // Apply brief hitstun recoil
+        const pushDir = this.facingRight ? -250 : 250;
         this.body.setVelocityX(pushDir);
 
-        // Flash Red on Hit
         this.bodyRect.setFillStyle(0xff0000);
         this.scene.time.delayedCall(this.stunDuration, () => {
-            this.bodyRect.setFillStyle(this.glowingColor);
+            this.bodyRect.setFillStyle(this.color);
             this.isStunned = false;
         });
 
-        // Generate damage popups text inside engine world layer space
-        const popX = this.x;
-        const popY = this.y - 240;
-        const t = this.scene.add.text(popX, popY, `-${amount}`, {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '24px',
-            fill: '#ef4444',
-            stroke: '#000000',
-            strokeThickness: 5
-        }).setOrigin(0.5);
-
-        this.scene.tweens.add({
-            targets: t,
-            y: popY - 60,
-            alpha: 0,
-            duration: 600,
-            ease: 'Quad.easeOut',
-            onComplete: () => t.destroy()
-        });
-
+        // Generate damage popups
+        this.scene.showPopupText(this.x, this.y - 240, `-${amount}`, '#ef4444');
         if (reason) {
-            this.scene.showPopupText(popX, popY - 40, reason, this.characterId === 'roe' ? '#60a5fa' : '#ef4444');
+            this.scene.showPopupText(this.x, this.y - 200, reason, '#fde047');
         }
     }
 
     showAttackFlash() {
         const flashX = this.x + (this.facingRight ? 90 : -90);
-        const flashY = this.y - 90;
+        const flashY = this.y - 105;
         const flash = this.scene.add.circle(flashX, flashY, 40, this.glowingColor, 0.7);
         this.scene.tweens.add({
             targets: flash,
@@ -286,7 +261,7 @@ export class Fighter extends Phaser.GameObjects.Container {
     enableAttackHitbox() {
         const offset = this.facingRight ? 90 : -90;
         this.attackHitbox.x = this.x + offset;
-        this.attackHitbox.y = this.y - 90;
+        this.attackHitbox.y = this.y - 105;
         this.attackHitbox.body.enable = true;
     }
 
@@ -298,37 +273,13 @@ export class Fighter extends Phaser.GameObjects.Container {
         }
     }
 
-    gainSuperMeter(amount) {
-        this.superMeter = Math.min(100, this.superMeter + amount);
-    }
-
-    update(opponent) {
-        // Fast dynamic alignment tracking to make sure ground state flags don't lock up
-        if (this.body.touching.down || this.body.blocked.down) {
+    update() {
+        // Fast dynamic alignment tracking to manage floor check boundaries safely
+        if (this.body.blocked.down || this.body.touching.down) {
             this.isGrounded = true;
-            this.jumpsRemaining = 2; // Reset jump tracking cache loop counter safely
+            this.jumpsRemaining = 2;
         } else {
             this.isGrounded = false;
         }
-
-        // Auto-orient characters to face each other dynamically when neutral idle
-        if (!this.isStunned && !this.isAttacking && !this.isBlocking && !this.superMoveActive && opponent) {
-            this.facingRight = this.x < opponent.x;
-            this.bodyRect.scaleX = this.facingRight ? 1 : -1;
-            this.headCircle.scaleX = this.facingRight ? 1 : -1;
-        }
-    }
-
-    showJumpParticles() {
-        const p = this.scene.add.circle(this.x, this.y, 15, 0xffffff, 0.6);
-        this.scene.tweens.add({
-            targets: p,
-            scaleX: 2.5,
-            scaleY: 0.5,
-            alpha: 0,
-            y: this.y + 10,
-            duration: 200,
-            onComplete: () => p.destroy()
-        });
     }
 }
