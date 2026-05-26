@@ -21,7 +21,7 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
         
-        const loadingText = this.add.text(width / 2, height / 2 - 60, 'LOADING COMBAT CONTEXT...', {
+        const loadingText = this.add.text(width / 2, height / 2 - 60, 'LOADING CONSTITUTIONAL EVIDENCE...', {
             fontFamily: '"Press Start 2P"',
             fontSize: '20px',
             fill: '#fde047'
@@ -46,22 +46,14 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
-        // Background
+        // Background texture
         this.load.image('courtroom-bg', 'assets/courtroom-bg.webp');
 
-        // Traditional legacy characters
+        // --- IMPORTING CHARACTER MODEL TEXTURES ---
+        // Replace these URLs with local relative files (e.g., 'assets/roe.png') when ready.
         this.load.image('char-roe', 'https://labs.phaser.io/assets/sprites/asuna_by_poncho-d7bocju.png');
         this.load.image('char-wade', 'https://labs.phaser.io/assets/sprites/buckyball.png');
         
-        // --- PRELOADING CITY MAN 3 ANIMATED SPRITESHEETS ---
-        // Adjust frameWidth and frameHeight to match the pixel dimensions of one block in your PNGs
-        const frameConfig = { frameWidth: 128, frameHeight: 128 };
-        this.load.spritesheet('cityman-idle', 'City_men_3/Idle.png', frameConfig);
-        this.load.spritesheet('cityman-walk', 'City_men_3/Walk.png', frameConfig);
-        this.load.spritesheet('cityman-attack', 'City_men_3/Attack.png', frameConfig);
-        this.load.spritesheet('cityman-hurt', 'City_men_3/Hurt.png', frameConfig);
-        this.load.spritesheet('cityman-dead', 'City_men_3/Dead.png', frameConfig);
-
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -75,9 +67,6 @@ export default class BattleScene extends Phaser.Scene {
         this.bg = this.add.image(width / 2, height / 2, 'courtroom-bg');
         this.bg.setDisplaySize(width, height);
 
-        // --- DEFINE GLOBAL ANIMATIONS FOR CITY MAN 3 ---
-        this.createCityManAnimations();
-
         this.createCourtroomProps();
         this.createJudicialGallery();
         this.createMainMenu();
@@ -88,44 +77,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.input.keyboard.on('keydown-M', () => {
             this.toggleMute();
-        });
-    }
-
-    createCityManAnimations() {
-        // Automatically reads all frames available inside the preloaded horizontal spritesheet
-        this.anims.create({
-            key: 'cityman_idle',
-            frames: this.anims.generateFrameNumbers('cityman-idle'),
-            frameRate: 8,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'cityman_walk',
-            frames: this.anims.generateFrameNumbers('cityman-walk'),
-            frameRate: 12,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'cityman_attack',
-            frames: this.anims.generateFrameNumbers('cityman-attack'),
-            frameRate: 16,
-            repeat: 0
-        });
-
-        this.anims.create({
-            key: 'cityman_hurt',
-            frames: this.anims.generateFrameNumbers('cityman-hurt'),
-            frameRate: 10,
-            repeat: 0
-        });
-
-        this.anims.create({
-            key: 'cityman_dead',
-            frames: this.anims.generateFrameNumbers('cityman-dead'),
-            frameRate: 6,
-            repeat: 0
         });
     }
 
