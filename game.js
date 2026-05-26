@@ -92,7 +92,6 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
 
-        // Generated procedural background for the courtroom
         const base = this.add.graphics();
         base.fillStyle(0x101018, 1);
         base.fillRect(0, 0, width, height);
