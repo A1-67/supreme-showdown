@@ -224,4 +224,142 @@ export default class BattleScene extends Phaser.Scene {
         this.h1Bar = this.add.rectangle(141, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
 
         this.add.rectangle(width - 738, 43, 600, 34, 0x18181b).setOrigin(0, 0);
-        this.h2Bar = this.
+        this.h2Bar = this.add.rectangle(width - 735, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
+
+        this.timerText = this.add.text(width / 2, 60, '99', {
+            fontFamily: '"Press Start 2P"', fontSize: '40px', fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.hudContainer.add([this.h1Bar, this.h2Bar, this.timerText]);
+
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: () => {
+                if (this.roundTimerValue > 0 && this.gameState === 'fight') {
+                    this.roundTimerValue--;
+                    this.timerText.setText(this.roundTimerValue.toString());
+                    if (this.roundTimerValue === 0) this.checkVictoryCondition();
+                }
+            },
+            loop: true
+        });
+    }
+
+    announceRoundStart() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const text = this.add.text(width / 2, height / 2, 'ROUND 1... FIGHT!', {
+            fontFamily: '"Press Start 2P"', fontSize: '48px', fill: '#ef4444'
+        }).setOrigin(0.5);
+        this.time.delayedCall(1500, () => text.destroy());
+    }
+
+    showPopupText(x, y, text, color) {
+        const popup = this.add.text(x, y, text, {
+            fontFamily: '"Press Start 2P"', fontSize: '18px', fill: color, stroke: '#000000', strokeThickness: 4
+        }).setOrigin(0.5);
+        this.tweens.add({
+            targets: popup, y: y - 50, alpha: 0, duration: 800, onComplete: () => popup.destroy()
+        });
+    }
+
+    playSFX(key) {
+        this.audioManager.sounds[key]?.play();
+    }
+
+    cheerSpectators() {
+        this.playSFX('cheer-applause');
+    }
+
+    toggleMute() {
+        this.audioManager.toggleMute();
+    }
+
+    update() {
+        if (this.gameState !== 'fight') return;
+
+        this.player1.update();
+        this.player2.update();
+
+        if (this.keysP1.left.isDown) this.player1.move(-1);
+        else if (this.keysP1.right.isDown) this.player1.move(1);
+        else this.player1.move(0);
+
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.jump)) this.player1.jump();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.attack)) this.player1.triggerAttack();
+        if (this.keysP1.down.isDown) this.player1.triggerSpecialShield();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.super)) this.player1.triggerSuperMove();
+
+        if (this.player2.isAI) {
+            this.handleAI();
+        } else {
+            if (this.keysP2.left.isDown) this.player2.move(-1);
+            else if (this.keysP2.right.isDown) this.player2.move(1);
+            else this.player2.move(0);
+
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) this.player2.jump();
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.attack)) this.player2.triggerAttack();
+            if (this.keysP2.down.isDown) this.player2.triggerSpecialShield();
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.super)) this.player2.triggerSuperMove();
+        }
+
+        this.checkAttackOverlaps();
+        this.updateHUD();
+    }
+
+    handleAI() {
+        const dist = Math.abs(this.player1.x - this.player2.x);
+        if (dist > 150) {
+            const dir = this.player1.x < this.player2.x ? -1 : 1;
+            this.player2.move(dir);
+        } else {
+            this.player2.move(0);
+            if (Math.random() < 0.05) this.player2.triggerAttack();
+        }
+    }
+
+    checkAttackOverlaps() {
+        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
+            this.player2.takeDamage(this.player1.damageNormal);
+            this.player1.superMeter = Math.min(100, this.player1.superMeter + this.comboMeterGain);
+            this.player1.disableAttackHitbox();
+        }
+        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
+            this.player1.takeDamage(this.player2.damageNormal);
+            this.player2.superMeter = Math.min(100, this.player2.superMeter + this.comboMeterGain);
+            this.player2.disableAttackHitbox();
+        }
+    }
+
+    updateHUD() {
+        const width = this.scale.width;
+        const p1HWidth = (this.player1.health / this.player1.maxHealth) * 594;
+        this.h1Bar.width = p1HWidth;
+
+        const p2HWidth = (this.player2.health / this.player2.maxHealth) * 594;
+        this.h2Bar.width = p2HWidth;
+        this.h2Bar.x = width - 138 - p2HWidth;
+        
+        if (this.player1.health <= 0 || this.player2.health <= 0) {
+            this.checkVictoryCondition();
+        }
+    }
+
+    checkVictoryCondition() {
+        this.gameState = 'verdict';
+        const winner = this.player1.health > 0 ? this.player1 : this.player2;
+        const loser = winner === this.player1 ? this.player2 : this.player1;
+
+        this.time.delayedCall(1000, () => {
+            showFinalVerdictScreen(this, 
+                { id: winner.characterId, name: winner.charName },
+                { id: loser.characterId, name: loser.charName },
+                () => this.restartBattle()
+            );
+        });
+    }
+
+    restartBattle() {
+        this.scene.restart();
+    }
+}
