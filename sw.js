@@ -6,7 +6,13 @@ const ASSETS_TO_CACHE = [
   'game.js',
   'entities.js',
   'ui.js',
+  'audio.js',             
   'manifest.json',
+  'assets/courtroom-bg.png', // <-- Make sure this matches your new filename!
+  'assets/audio/court-battle.mp3',   
+  'assets/audio/gavel-hit.mp3',       
+  'assets/audio/cheer-applause.mp3',
+  'assets/audio/super-charge.mp3',
   'assets/icon-192.png',
   'assets/icon-512.png'
 ];

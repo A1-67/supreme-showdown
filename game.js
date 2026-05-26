@@ -150,63 +150,92 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.galleryJudges = [];
 
+        // Row of wigged judges sitting at judicial bench bobbing and waving tiny wooden gavels
         const benchXStart = width / 2 - 320;
         const judgeCount = 7;
+        const totalSpan  = 660;
+        const spacing    = totalSpan / (judgeCount - 1);
+        const startX     = width / 2 - totalSpan / 2;
 
         for (let i = 0; i < judgeCount; i++) {
-            const jx = benchXStart + (i * 110);
-            const jy = 515;
+            const jx = startX + i * spacing;
+            // Seat the judge so their torso starts right at bench top —
+            // the robe body (drawn from y=0 downward) will be hidden behind
+            // the bench-mask panel drawn afterwards.
+            const jy = benchTop;
 
             const judgeContainer = this.add.container(jx, jy);
-
+            
+            // Black judicial robes
             const body = this.add.graphics();
             body.fillStyle(0x111827, 1);
             body.fillRoundedRect(-25, 0, 50, 60, 6);
-
+            
+            // Lace collar
             const collar = this.add.graphics();
-            collar.fillStyle(0xffffff, 1);
+            collar.fillStyle(0xf3f4f6, 1);
             collar.beginPath();
-            collar.moveTo(-10, 0);
-            collar.lineTo(0, 15);
-            collar.lineTo(10, 0);
+            collar.moveTo(-9, 0);
+            collar.lineTo(0, 14);
+            collar.lineTo(9, 0);
             collar.closePath();
             collar.fillPath();
 
+            // Face
             const head = this.add.graphics();
             head.fillStyle(0xfde047, 1);
             head.fillCircle(0, -15, 16);
 
+            // Classic curly judicial wig
             const wig = this.add.graphics();
             wig.fillStyle(0xf9fafb, 1);
-            wig.lineStyle(2, 0xe5e7eb, 1);
-            wig.fillCircle(-16, -18, 11);
-            wig.strokeCircle(-16, -18, 11);
-            wig.fillCircle(16, -18, 11);
-            wig.strokeCircle(16, -18, 11);
-            wig.fillCircle(0, -28, 15);
-            wig.strokeCircle(0, -28, 15);
+            wig.lineStyle(1.5, 0xe5e7eb, 1);
+            wig.fillCircle(-14, -22, 10);
+            wig.strokeCircle(-14, -22, 10);
+            wig.fillCircle(14, -22, 10);
+            wig.strokeCircle(14, -22, 10);
+            wig.fillCircle(0, -30, 13);
+            wig.strokeCircle(0, -30, 13);
 
+            // Hand waving a tiny gavel (just like robed judges in image!)
             const tinyGavel = this.add.graphics();
-            tinyGavel.fillStyle(0x78350f, 1);
-            tinyGavel.fillRect(15, -15, 5, 20);
-            tinyGavel.fillStyle(0x451a03, 1);
+            tinyGavel.fillStyle(0x78350f, 1); // Brown shaft
+            tinyGavel.fillRect(15, -15, 5, 20); // Handle
+            tinyGavel.fillStyle(0x451a03, 1); // Oak mallet
             tinyGavel.fillRect(10, -22, 15, 8);
 
-            judgeContainer.add([body, collar, head, wig, tinyGavel]);
+            judgeContainer.add([robe, collar, face, wig, tinyGavel]);
             judgeContainer.tinyGavel = tinyGavel;
+            judgeContainer.baseY = jy;
 
             this.add.existing(judgeContainer);
             this.galleryJudges.push(judgeContainer);
 
+            // Back-and-forth idle breathing
             this.tweens.add({
                 targets: judgeContainer,
-                y: jy + 6,
-                duration: 900 + i * 150,
+                y: jy - 4,
+                duration: 1100 + i * 140,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
             });
         }
+
+        // ── Bench-front masking panel ──────────────────────────────────────
+        // A dark mahogany strip drawn ON TOP of the judges to hide their robes
+        // below bench-top level, completing the "seated behind bench" illusion.
+        const benchMask = this.add.graphics();
+        benchMask.fillStyle(0x3b1f0a, 1);          // dark mahogany
+        benchMask.lineStyle(3, 0xeab308, 0.5);     // subtle gold trim line on top
+        // Covers the area from bench-top downward across the full gallery width
+        const maskX = startX - 60;
+        const maskW = totalSpan + 120;
+        benchMask.fillRect(maskX, benchTop, maskW, 120);
+        benchMask.lineBetween(maskX, benchTop, maskX + maskW, benchTop);
+        // A second inset panel detail line
+        benchMask.lineStyle(2, 0x78350f, 0.8);
+        benchMask.lineBetween(maskX + 8, benchTop + 8, maskX + maskW - 8, benchTop + 8);
     }
 
     createMainMenu() {
@@ -286,31 +315,11 @@ export default class BattleScene extends Phaser.Scene {
         controlPanel.strokeRoundedRect(-450, 140, 900, 180, 8);
         this.menuContainer.add(controlPanel);
 
-        const p1Label = this.add.text(-220, 165, 'PLAYER 1: ROE (Plaintiff)', {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '11px',
-            fill: '#60a5fa'
-        }).setOrigin(0.5);
-        const p1Controls = this.add.text(-220, 240, 'Move: A / D | Jump: W (Double-Jump)\nStandard Combo (3-Hit): J key\nPrivacy Shield (Block): Hold S + J\nSuper Substantive Liberty: SPACEBAR', {
-            fontFamily: 'Arial',
-            fontSize: '14px',
-            fill: '#d1d5db',
-            align: 'center',
-            lineSpacing: 5
-        }).setOrigin(0.5);
-
-        const p2Label = this.add.text(220, 165, 'PLAYER 2: WADE (Defendant)', {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '11px',
-            fill: '#fca5a5'
-        }).setOrigin(0.5);
-        const p2Controls = this.add.text(220, 240, 'Move: Left / Right | Jump: UP (Double-Jump)\nStandard Combo (3-Hit): 1 key\nSovereign Wall (Block): Hold DOWN + 1\nSuper Police Power: 0 key', {
-            fontFamily: 'Arial',
-            fontSize: '14px',
-            fill: '#d1d5db',
-            align: 'center',
-            lineSpacing: 5
-        }).setOrigin(0.5);
+        const p1Label = this.add.text(-220, 165, 'PLAYER 1: ROE (Plaintiff)', { fontFamily: '"Press Start 2P"', fontSize: '11px', fill: '#60a5fa' }).setOrigin(0.5);
+        const p1Controls = this.add.text(-220, 240, 'Move: A / D | Jump: W (Double-Jump)\nStandard Combo (3-Hit): J key\nPrivacy Shield (Block): Hold S + J\nSuper Substantive Liberty: SPACEBAR', { fontFamily: 'Arial', fontSize: '14px', fill: '#d1d5db', align: 'center', lineSpacing: 5 }).setOrigin(0.5);
+        
+        const p2Label = this.add.text(220, 165, 'PLAYER 2: WADE (Defendant)', { fontFamily: '"Press Start 2P"', fontSize: '11px', fill: '#fca5a5' }).setOrigin(0.5);
+        const p2Controls = this.add.text(220, 240, 'Move: Left / Right | Jump: UP (Double-Jump)\nStandard Combo (3-Hit): 1 key\nSovereign Wall (Block): Hold DOWN + 1\nSuper Police Power: 0 key', { fontFamily: 'Arial', fontSize: '14px', fill: '#d1d5db', align: 'center', lineSpacing: 5 }).setOrigin(0.5);
 
         this.menuContainer.add([p1Label, p1Controls, p2Label, p2Controls]);
 
@@ -388,25 +397,38 @@ export default class BattleScene extends Phaser.Scene {
 
     setupControls() {
         const keyboard = this.input.keyboard;
-
+        
         this.keysP1 = {
-            left: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-            right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-            down: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-            jump: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-            attack: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J),
-            super: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+            left:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+            right:    keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+            down:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+            jump:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+            kick:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J),
+            slash:    keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K),
+            teleport: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L),
+            tackle:   keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.U),
+            super:    keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
         };
 
+        // ─ WADE (P2) ───────────────────────────────────────────────────────
+        // Move: ←/→   Jump: ↑   Kick: NUM1  Slash: NUM2  Teleport: NUM3  Tackle: NUM4
+        // Shield: ↓+NUM1         Super: NUM0
         this.keysP2 = {
-            left: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-            right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-            down: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-            jump: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-            attack: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
-            attackNumpad: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE),
-            super: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ZERO),
-            superNumpad: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ZERO)
+            left:         keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+            right:        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+            down:         keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+            jump:         keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+            kick:         keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE),
+            slash:        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_TWO),
+            teleport:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE),
+            tackle:       keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR),
+            super:        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ZERO),
+            // row-number fallbacks for laptops without numpads
+            kickRow:      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
+            slashRow:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
+            teleportRow:  keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
+            tackleRow:    keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
+            superRow:     keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ZERO)
         };
     }
 
@@ -595,48 +617,39 @@ export default class BattleScene extends Phaser.Scene {
             this.player2.update(this.player1);
         }
 
+        // --- PLAYER 1 (ROE) INPUTS ---
         let p1XDir = 0;
-        if (this.keysP1.left.isDown) {
-            p1XDir = -1;
-        } else if (this.keysP1.right.isDown) {
-            p1XDir = 1;
-        }
+        if (this.keysP1.left.isDown) p1XDir = -1;
+        else if (this.keysP1.right.isDown) p1XDir = 1;
         this.player1.move(p1XDir);
 
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.jump)) {
-            this.player1.jump();
-        }
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.jump))   this.player1.jump();
 
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.attack)) {
-            if (this.keysP1.down.isDown) {
-                this.player1.triggerSpecialShield();
-            } else {
-                this.player1.triggerAttack();
-            }
+        // Shield: hold S then press J
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.kick)) {
+            if (this.keysP1.down.isDown) this.player1.triggerSpecialShield();
+            else                          this.player1.doKick();
         }
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.slash))    this.player1.doSlash();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.teleport))  this.player1.doTeleport();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.tackle))    this.player1.doTackle();
 
-        if (Phaser.Input.Keyboard.JustDown(this.keysP1.super)) {
-            if (this.player1.superMeter >= 100) {
-                this.triggerSuper(this.player1);
-            }
-        }
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.super) && this.player1.superMeter >= 100)
+            this.triggerSuper(this.player1);
 
+        // --- PLAYER 2 (WADE) / AI INPUTS ---
         if (this.player2.isAI) {
             this.handleAIBehavior();
         } else {
             let p2XDir = 0;
-            if (this.keysP2.left.isDown) {
-                p2XDir = -1;
-            } else if (this.keysP2.right.isDown) {
-                p2XDir = 1;
-            }
+            if (this.keysP2.left.isDown) p2XDir = -1;
+            else if (this.keysP2.right.isDown) p2XDir = 1;
             this.player2.move(p2XDir);
 
-            if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) {
-                this.player2.jump();
-            }
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) this.player2.jump();
 
-            const isP2AttackPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.attack) || Phaser.Input.Keyboard.JustDown(this.keysP2.attackNumpad);
+            const isP2AttackPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.attack) || 
+                                      Phaser.Input.Keyboard.JustDown(this.keysP2.attackNumpad);
             if (isP2AttackPressed) {
                 if (this.keysP2.down.isDown) {
                     this.player2.triggerSpecialShield();
@@ -645,7 +658,8 @@ export default class BattleScene extends Phaser.Scene {
                 }
             }
 
-            const isP2SuperPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.super) || Phaser.Input.Keyboard.JustDown(this.keysP2.superNumpad);
+            const isP2SuperPressed = Phaser.Input.Keyboard.JustDown(this.keysP2.super) || 
+                                     Phaser.Input.Keyboard.JustDown(this.keysP2.superNumpad);
             if (isP2SuperPressed) {
                 if (this.player2.superMeter >= 100) {
                     this.triggerSuper(this.player2);
@@ -659,36 +673,52 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     handleAIBehavior() {
-        if (!this.player1 || !this.player2) {
-            return;
-        }
-
         const dist = Phaser.Math.Distance.Between(this.player1.x, this.player1.y, this.player2.x, this.player2.y);
         const now = this.time.now;
 
-        if (this.player2.isStunned) {
-            return;
-        }
+        if (this.player2.isStunned) return;
 
+        // Move towards Player 1
         if (dist > 180) {
             const dir = this.player1.x > this.player2.x ? 1 : -1;
             this.player2.move(dir);
+            
             if (Math.random() < 0.02 && this.player2.isGrounded) {
                 this.player2.jump();
             }
+            // Occasionally jump to close gap
+            if (Math.random() < 0.018 && this.player2.isGrounded) this.player2.jump();
+
         } else {
+            // ── in-range combat ────────────────────────────────────────────
             this.player2.body.setVelocityX(0);
             if (this.player2.superMeter >= 100) {
                 this.triggerSuper(this.player2);
-            } else if (this.player1.isAttacking && Math.random() < 0.3) {
-                this.player2.triggerSpecialShield();
-            } else if (now - this.player2.lastAttackTime > 350) {
-                this.player2.triggerAttack();
+                return;
+            }
+
+            if (now - this.player2.lastAttackTime < this.player2.attackCooldown) return;
+
+            // Weighted random move selection for natural-feeling AI
+            const roll = Math.random();
+            if (this.player1.isAttacking && roll < 0.30) {
+                this.player2.triggerSpecialShield();   // 30% react with block
+            } else if (roll < 0.40) {
+                this.player2.doKick();                 // 40% kick
+            } else if (roll < 0.60) {
+                this.player2.doSlash();                // 20% slash
+            } else if (roll < 0.72) {
+                this.player2.doTackle();               // 12% tackle
+            } else if (roll < 0.80) {
+                this.player2.doTeleport();             // 8% teleport surprise
+            } else {
+                this.player2.doSlash();                // fallback
             }
         }
     }
 
     checkAttackOverlaps() {
+        // Player 1 Hitbox hitting Player 2
         if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
             if (!this.player2.isStunned) {
                 this.player2.takeDamage(this.player1.damageNormal, this.player1.attackText);
@@ -699,6 +729,7 @@ export default class BattleScene extends Phaser.Scene {
             }
         }
 
+        // Player 2 Hitbox hitting Player 1
         if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
             if (!this.player1.isStunned) {
                 this.player1.takeDamage(this.player2.damageNormal, this.player2.attackText);
@@ -715,11 +746,13 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     cheerSpectators() {
+        // Robed judges leap up excitedly waving tiny wooden gavels
         this.galleryJudges.forEach((judge, idx) => {
+            const base = judge.baseY || 595;
             this.tweens.add({
                 targets: judge,
-                y: 515 - 45,
-                duration: 150,
+                y: base - 30,       // short pop-up — still looks seated
+                duration: 140,
                 yoyo: true,
                 repeat: 1,
                 ease: 'Back.easeOut'
@@ -728,8 +761,8 @@ export default class BattleScene extends Phaser.Scene {
             if (judge.tinyGavel) {
                 this.tweens.add({
                     targets: judge.tinyGavel,
-                    angle: idx % 2 === 0 ? 35 : -35,
-                    duration: 80,
+                    angle: idx % 2 === 0 ? 40 : -40,
+                    duration: 75,
                     yoyo: true,
                     repeat: 3
                 });
