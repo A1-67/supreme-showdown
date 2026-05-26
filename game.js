@@ -52,6 +52,7 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // Load Background Image
+        // Change this line inside your preload() block:
         this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
         
         // Initialize and preload Audio
