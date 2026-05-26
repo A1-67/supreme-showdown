@@ -1,414 +1,328 @@
 import Phaser from 'phaser';
+import { Fighter } from './entities.js';
+import { AudioManager } from './audio.js';
+import { createCharacterSelectUI, showFinalVerdictScreen } from './ui.js';
 
-export class Fighter extends Phaser.GameObjects.Container {
-    /**
-     * @param {Phaser.Scene} scene
-     * @param {number} x
-     * @param {number} y
-     * @param {string} characterId - 'roe' | 'wade'
-     * @param {boolean} isPlayer2
-     * @param {boolean} isAI
-     */
-    constructor(scene, x, y, characterId, isPlayer2 = false, isAI = false) {
-        super(scene, x, y);
-        this.scene = scene;
-        this.characterId = characterId;
-        this.isPlayer2 = isPlayer2;
-        this.isAI = isAI;
-
-        // Core Combat Stats & Configuration
-        this.maxHealth = 100;
-        this.health = 100;
-        this.superMeter = 0;
-        
-        this.isStunned = false;
-        this.stunDuration = 120;
-        
-        this.speed = characterId === 'roe' ? 540 : 420;
-        this.jumpForce = characterId === 'roe' ? -1100 : -950;
-        this.doubleJumpForce = characterId === 'roe' ? -950 : -800;
-        this.jumpsRemaining = 2;
-        this.isGrounded = false;
-        
-        this.isAttacking = false;
-        this.isSuperActive = false;
-        this.facingRight = !isPlayer2;
-        this.lastAttackTime = 0;
-        this.attackCooldown = 280;
-        this.isBlocking = false;
-        
-        this.isPrivacyShieldActive = false;
-        this.isSovereignWallActive = false;
-
-        this.setupStats();
-        this.createAdvancedVisuals();
-        this.createHitboxes();
-
-        this.scene.add.existing(this);
-        this.scene.physics.add.existing(this);
-        
-        this.body.setCollideWorldBounds(true);
-        this.body.setGravityY(2300);
-        this.body.setDragX(1300);
-        this.body.setSize(100, 220);
-        this.body.setOffset(-50, -220);
+export default class BattleScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'BattleScene' });
     }
 
-    setupStats() {
-        if (this.characterId === 'roe') {
-            this.charName = 'Jane Roe';
-            this.colorBase = 0x1e40af;       // Deep Judicial Blue
-            this.colorAccent = 0x60a5fa;     // Light Blue Highlights
-            this.damageNormal = 8;
-        } else {
-            this.charName = 'Henry Wade';
-            this.colorBase = 0x991b1b;       // Deep State Crimson
-            this.colorAccent = 0xfca5a5;     // Pink/Red Highlights
-            this.damageNormal = 13;
-        }
+    init() {
+        this.gameState = 'menu'; 
+        this.fighters = [];
+        this.floorY = 920; 
+        this.comboMeterGain = 12; 
+        this.roundTimerValue = 99;
+        this.timerEvent = null;
     }
 
-    createAdvancedVisuals() {
-        // --- 1. BASE BODY & JUDICIAL ROBES LAYERING ---
-        this.robeShadow = this.scene.add.rectangle(0, -100, 90, 200, 0x111827, 0.4);
-        this.robeMain = this.scene.add.rectangle(0, -105, 80, 210, this.colorBase);
-        this.robeMain.setStrokeStyle(4, 0xffffff);
-
-        // Robe pleats (Vertical geometric lines for texture)
-        this.pleatLeft = this.scene.add.rectangle(-20, -105, 8, 190, 0x111827, 0.25);
-        this.pleatRight = this.scene.add.rectangle(20, -105, 8, 190, 0x111827, 0.25);
-
-        // White Jabot / Legal Collar
-        this.legalCollar = this.scene.add.graphics();
-        this.legalCollar.fillStyle(0xffffff, 1);
-        this.legalCollar.beginPath();
-        this.legalCollar.moveTo(-15, -200);
-        this.legalCollar.lineTo(15, -200);
-        this.legalCollar.lineTo(25, -160);
-        this.legalCollar.lineTo(0, -145);
-        this.legalCollar.lineTo(-25, -160);
-        this.legalCollar.closePath();
-        this.legalCollar.fillPath();
-        this.legalCollar.lineStyle(2, 0xd1d5db, 1);
-        this.legalCollar.strokePath();
-
-        // --- 2. ADVANCED CHARACTER HEAD & HAIR MODELS ---
-        this.headCircle = this.scene.add.circle(0, -240, 32, 0xfef08a);
-        this.headCircle.setStrokeStyle(3, 0x78350f);
-
-        this.hairGraphics = this.scene.add.graphics();
-        if (this.characterId === 'roe') {
-            // Jane Roe - Flowing Liberty Hair Locks
-            this.hairGraphics.fillStyle(0x78350f, 1); // Auburn/Brown
-            this.hairGraphics.fillCircle(-25, -235, 16);
-            this.hairGraphics.fillCircle(25, -235, 16);
-            this.hairGraphics.fillCircle(0, -270, 25);
-            // Flowing back curls
-            this.hairGraphics.fillRoundedRect(-38, -230, 20, 70, 8);
-            this.hairGraphics.fillRoundedRect(18, -230, 20, 70, 8);
-        } else {
-            // Henry Wade - Formal Powdered Court Wig & Glasses
-            this.hairGraphics.fillStyle(0xe5e7eb, 1); // Powder White
-            this.hairGraphics.fillCircle(-28, -245, 15);
-            this.hairGraphics.fillCircle(-28, -225, 14);
-            this.hairGraphics.fillCircle(28, -245, 15);
-            this.hairGraphics.fillCircle(28, -225, 14);
-            this.hairGraphics.fillCircle(0, -272, 28);
-            
-            // Wireframe Glasses Overlay
-            this.hairGraphics.lineStyle(2.5, 0x1f2937, 1);
-            this.hairGraphics.strokeCircle(-12, -242, 8);
-            this.hairGraphics.strokeCircle(12, -242, 8);
-            this.hairGraphics.lineBetween(-4, -242, 4, -242);
-        }
-
-        // --- 3. DYNAMICALLY HELD COMBAT OBJECTS (WEAPONS) ---
-        this.weaponContainer = this.scene.add.container(40, -120);
-        this.weaponVisual = this.scene.add.graphics();
+    preload() {
+        const width = this.scale.width;
+        const height = this.scale.height;
         
-        if (this.characterId === 'roe') {
-            // Golden Scales of Justice
-            this.weaponVisual.lineStyle(4, 0xf59e0b, 1);
-            this.weaponVisual.lineBetween(0, -30, 0, 30); // Center Beam
-            this.weaponVisual.lineBetween(-30, -20, 30, -20); // Crossbar
-            this.weaponVisual.fillStyle(0xd97706, 1);
-            this.weaponVisual.fillCircle(-30, -5, 10); // Left Scale Pan
-            this.weaponVisual.fillCircle(30, -5, 10);  // Right Scale Pan
-        } else {
-            // Heavy Mahogany Executive Gavel
-            this.weaponVisual.fillStyle(0x78350f, 1);
-            this.weaponVisual.fillRect(-6, -40, 12, 70); // Handle
-            this.weaponVisual.fillStyle(0x451a03, 1);
-            this.weaponVisual.fillRoundedRect(-25, -50, 50, 24, 4); // Gavel Head
-            this.weaponVisual.lineStyle(2, 0xf59e0b, 1);
-            this.weaponVisual.strokeRoundedRect(-25, -50, 50, 24, 4);
-        }
-        this.weaponContainer.add(this.weaponVisual);
-
-        // --- 4. STRUCTURAL SHIELDING EFFECTS ---
-        this.shieldAura = this.scene.add.graphics();
-        this.shieldAura.lineStyle(6, this.colorAccent, 0.85);
-        this.shieldAura.strokeCircle(0, -110, 115);
-        this.shieldAura.fillStyle(this.colorAccent, 0.15);
-        this.shieldAura.fillCircle(0, -110, 115);
-        this.shieldAura.setVisible(false);
-
-        // Add everything to structural hierarchy layout array
-        this.add([
-            this.robeShadow, this.robeMain, this.pleatLeft, this.pleatRight,
-            this.legalCollar, this.hairGraphics, this.headCircle, 
-            this.weaponContainer, this.shieldAura
-        ]);
-
-        // Overhead Name Tag UI
-        this.nameTag = this.scene.add.text(0, -320, this.charName, {
+        const loadingText = this.add.text(width / 2, height / 2 - 60, 'LOADING CONSTITUTIONAL EVIDENCE...', {
             fontFamily: '"Press Start 2P"',
-            fontSize: '13px',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
+            fontSize: '20px',
+            fill: '#fde047'
         }).setOrigin(0.5);
-        this.add(this.nameTag);
 
-        // Flip configuration correction adjustment
-        if (!this.facingRight) {
-            this.flipVisualLayout();
-        }
+        const progressBox = this.add.graphics();
+        progressBox.fillStyle(0x18181b, 0.8);
+        progressBox.lineStyle(4, 0xeab308, 1);
+        progressBox.fillRoundedRect(width / 2 - 400, height / 2 - 25, 800, 50, 6);
+        progressBox.strokeRoundedRect(width / 2 - 400, height / 2 - 25, 800, 50, 6);
+
+        const progressBar = this.add.graphics();
+        this.load.on('progress', (value) => {
+            progressBar.clear();
+            progressBar.fillStyle(0xeab308, 1);
+            progressBar.fillRoundedRect(width / 2 - 390, height / 2 - 15, 780 * value, 30, 4);
+        });
+
+        this.load.on('complete', () => {
+            progressBar.destroy();
+            progressBox.destroy();
+            loadingText.destroy();
+        });
+
+        this.load.image('courtroom-bg', 'assets/courtroom-bg.webp');
+        this.audioManager = new AudioManager(this);
+        this.audioManager.preload();
     }
 
-    createHitboxes() {
-        this.attackHitbox = this.scene.add.rectangle(0, -110, 190, 120, 0xff0000, 0);
-        this.scene.physics.add.existing(this.attackHitbox);
-        this.attackHitbox.body.setAllowGravity(false);
-        this.attackHitbox.body.setImmovable(true);
-        this.disableAttackHitbox();
+    create() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        this.audioManager.init();
+
+        this.bg = this.add.image(width / 2, height / 2, 'courtroom-bg');
+        this.bg.setDisplaySize(width, height);
+
+        this.createCourtroomProps();
+        this.createJudicialGallery();
+        this.createMainMenu();
+
+        this.input.once('pointerdown', () => {
+            this.audioManager.playMusic();
+        });
+
+        this.input.keyboard.on('keydown-M', () => {
+            this.toggleMute();
+        });
     }
 
-    flipVisualLayout() {
-        const scaleXVal = this.facingRight ? 1 : -1;
-        this.robeMain.scaleX = scaleXVal;
-        this.headCircle.scaleX = scaleXVal;
-        this.hairGraphics.scaleX = scaleXVal;
-        this.legalCollar.scaleX = scaleXVal;
-        this.pleatLeft.scaleX = scaleXVal;
-        this.pleatRight.scaleX = scaleXVal;
+    createCourtroomProps() {
+        const width = this.scale.width;
         
-        // Flip weapon arm orientation smoothly
-        this.weaponContainer.x = this.facingRight ? 40 : -40;
-        this.weaponContainer.scaleX = scaleXVal;
+        // Polished marble floor reflection overlay
+        this.add.rectangle(width / 2, this.floorY + 80, width, 160, 0x1e1b4b, 0.12);
+        
+        // Static ground physics line 
+        this.ground = this.add.rectangle(width / 2, this.floorY + 15, width, 30, 0x000000, 0);
+        this.physics.add.existing(this.ground, true);
     }
 
-    move(dir) {
-        if (this.isStunned || this.isAttacking || this.isBlocking || this.isSuperActive) {
-            this.body.setVelocityX(0);
-            return;
-        }
+    createJudicialGallery() {
+        const width = this.scale.width;
+        this.galleryJudges = [];
+        const benchXStart = width / 2 - 320;
 
-        this.body.setVelocityX(dir * this.speed);
-        if (dir !== 0) {
-            const requestedDirection = dir > 0;
-            if (this.facingRight !== requestedDirection) {
-                this.facingRight = requestedDirection;
-                this.flipVisualLayout();
-            }
+        for (let i = 0; i < 7; i++) {
+            const jx = benchXStart + (i * 110);
+            const jy = 515;
+            const judgeContainer = this.add.container(jx, jy);
             
-            // Idle bounce simulation effect during active travel velocity
-            const bobOffset = Math.sin(this.scene.time.now * 0.015) * 3;
-            this.headCircle.y = -240 + bobOffset;
-            this.hairGraphics.y = bobOffset;
-            this.weaponContainer.y = -120 + (bobOffset * 1.5);
+            const body = this.add.graphics().fillStyle(0x111827, 1).fillRoundedRect(-25, 0, 50, 60, 6);
+            const head = this.add.graphics().fillStyle(0xfde047, 1).fillCircle(0, -15, 16);
+            judgeContainer.add([body, head]);
+
+            this.add.existing(judgeContainer);
+            this.galleryJudges.push(judgeContainer);
         }
     }
 
-    jump() {
-        if (this.isStunned || this.isBlocking || this.isSuperActive) return;
+    createMainMenu() {
+        const width = this.scale.width;
+        const height = this.scale.height;
 
-        if (this.isGrounded) {
-            this.body.setVelocityY(this.jumpForce);
-            this.jumpsRemaining = 1;
-            this.isGrounded = false;
-        } else if (this.jumpsRemaining > 0) {
-            this.body.setVelocityY(this.doubleJumpForce);
-            this.jumpsRemaining = 0;
-            this.showJumpParticles();
-        }
-    }
+        this.menuContainer = this.add.container(width / 2, height / 2);
 
-    triggerAttack() {
-        const now = this.scene.time.now;
-        if (this.isStunned || this.isBlocking || this.isAttacking || now - this.lastAttackTime < this.attackCooldown) return;
+        const logoBack = this.add.rectangle(0, -220, 950, 150, 0x18181b, 0.9).setStrokeStyle(6, 0xeab308);
+        const titleText = this.add.text(0, -250, 'SUPREME SHOWDOWN', {
+            fontFamily: '"Press Start 2P"', fontSize: '54px', fill: '#fde047', stroke: '#000000', strokeThickness: 8
+        }).setOrigin(0.5);
 
-        this.isAttacking = true;
-        this.lastAttackTime = now;
+        this.menuContainer.add([logoBack, titleText]);
 
-        // Propel model forward during active physical swing execution loops
-        const lunge = this.facingRight ? 350 : -350;
-        this.body.setVelocityX(lunge);
+        const startBtn = this.add.rectangle(0, 40, 380, 70, 0x16a34a).setStrokeStyle(4, 0xffffff).setInteractive();
+        const startText = this.add.text(0, 40, 'START GAME', {
+            fontFamily: '"Press Start 2P"', fontSize: '20px', fill: '#ffffff'
+        }).setOrigin(0.5);
+        this.menuContainer.add([startBtn, startText]);
 
-        this.enableAttackHitbox();
-        this.showAttackFlash();
-
-        // Animate the held legal weapon item using a rapid rotational frame swing
-        this.scene.tweens.add({
-            targets: this.weaponContainer,
-            angle: this.facingRight ? 85 : -85,
-            scaleX: 1.3,
-            scaleY: 1.3,
-            duration: 90,
-            yoyo: true,
-            repeat: 0,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-                this.weaponContainer.angle = 0;
-                this.weaponContainer.setScale(1);
-                this.disableAttackHitbox();
-                this.isAttacking = false;
-            }
+        startBtn.on('pointerdown', () => {
+            this.playSFX('gavel-hit');
+            this.transitionToCharacterSelect();
         });
     }
 
-    triggerSpecialShield() {
-        if (this.isStunned || this.isAttacking || this.isSuperActive) return;
-        this.isBlocking = true;
-        this.body.setVelocityX(0);
+    transitionToCharacterSelect() {
+        this.menuContainer.destroy();
+        this.gameState = 'character_select';
         
-        this.shieldAura.setVisible(true);
-
-        // Visual pulse feedback during shield lock intervals
-        this.shieldAura.alpha = 0.3 + (Math.sin(this.scene.time.now * 0.03) * 0.2);
-
-        this.scene.time.delayedCall(300, () => {
-            this.shieldAura.setVisible(false);
-            this.isBlocking = false;
+        createCharacterSelectUI(this, (p1Id, p2Id, vsAI) => {
+            this.startFight(p1Id, p2Id, vsAI);
         });
     }
 
-    triggerSuperMove() {
-        if (this.superMeter < 100 || this.isStunned || this.isSuperActive) return;
-        this.superMeter = 0;
-        this.isSuperActive = true;
-        this.body.setVelocity(0, 0);
+    startFight(p1Id, p2Id, vsAI) {
+        const width = this.scale.width;
+        this.gameState = 'fight';
 
-        this.scene.playSFX('super-charge');
-        this.scene.cameras.main.flash(350, this.colorBase);
-
-        // Huge structural field projection representation bounding boxes
-        const superZone = this.scene.add.rectangle(this.x + (this.facingRight ? 320 : -320), this.y - 110, 640, 220, this.colorBase, 0.45);
-        superZone.setStrokeStyle(5, 0xffffff);
-        this.scene.physics.add.existing(superZone);
-        superZone.body.setAllowGravity(false);
-
-        // Intense weapon spinning cinematic translation
-        this.scene.tweens.add({
-            targets: this.weaponContainer,
-            angle: this.facingRight ? 360 : -360,
-            scaleX: 2.2,
-            scaleY: 2.2,
-            duration: 400,
-            ease: 'Quad.easeInOut'
-        });
-
-        const opponent = this.scene.player1 === this ? this.scene.player2 : this.scene.player1;
+        // Instantiate both Fighters safely inside screen boundaries
+        this.player1 = new Fighter(this, width * 0.25, this.floorY, p1Id, false, false);
+        this.player2 = new Fighter(this, width * 0.75, this.floorY, p2Id, true, vsAI);
         
-        this.scene.time.delayedCall(250, () => {
-            if (this.scene.physics.overlap(superZone, opponent)) {
-                opponent.takeDamage(35, 'CRITICAL VERDICT!');
-                this.scene.cheerSpectators();
-            }
-            this.scene.tweens.add({
-                targets: superZone,
-                alpha: 0,
-                scaleY: 0,
-                duration: 150,
-                onComplete: () => {
-                    superZone.destroy();
-                    this.weaponContainer.angle = 0;
-                    this.weaponContainer.setScale(1);
-                    this.isSuperActive = false;
+        this.fighters = [this.player1, this.player2];
+
+        // ADD PHYSICS COLLIDERS TO PREVENT FALLING THROUGH FLOOR
+        this.physics.add.collider(this.player1, this.ground);
+        this.physics.add.collider(this.player2, this.ground);
+        this.physics.add.collider(this.player1, this.player2);
+
+        this.setupControls();
+        this.createHUD();
+        this.announceRoundStart();
+    }
+
+    setupControls() {
+        const keyboard = this.input.keyboard;
+        this.keysP1 = {
+            left: keyboard.addKey('A'), right: keyboard.addKey('D'),
+            down: keyboard.addKey('S'), jump: keyboard.addKey('W'),
+            attack: keyboard.addKey('J'), super: keyboard.addKey('SPACE')
+        };
+        this.keysP2 = {
+            left: keyboard.addKey('LEFT'), right: keyboard.addKey('RIGHT'),
+            down: keyboard.addKey('DOWN'), jump: keyboard.addKey('UP'),
+            attack: keyboard.addKey('ONE'), super: keyboard.addKey('ZERO')
+        };
+    }
+
+    createHUD() {
+        const width = this.scale.width;
+        this.hudContainer = this.add.container(0, 0);
+
+        // Player 1 Health background bar
+        this.add.rectangle(138, 43, 600, 34, 0x18181b).setOrigin(0, 0);
+        this.h1Bar = this.add.rectangle(141, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
+
+        // Player 2 Health background bar
+        this.add.rectangle(width - 738, 43, 600, 34, 0x18181b).setOrigin(0, 0);
+        this.h2Bar = this.add.rectangle(width - 735, 46, 594, 28, 0x22c55e).setOrigin(0, 0);
+
+        // Timer text layout
+        this.timerText = this.add.text(width / 2, 60, '99', {
+            fontFamily: '"Press Start 2P"', fontSize: '40px', fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        this.hudContainer.add([this.h1Bar, this.h2Bar, this.timerText]);
+
+        this.timerEvent = this.time.addEvent({
+            delay: 1000,
+            callback: () => {
+                if (this.roundTimerValue > 0 && this.gameState === 'fight') {
+                    this.roundTimerValue--;
+                    this.timerText.setText(this.roundTimerValue.toString());
+                    if (this.roundTimerValue === 0) this.checkVictoryCondition();
                 }
-            });
+            },
+            loop: true
         });
     }
 
-    takeDamage(amount, reason = '') {
-        if (this.isBlocking) {
-            amount = Math.floor(amount * 0.15);
-            this.scene.showPopupText(this.x, this.y - 280, 'BLOCKED!', '#ffffff');
-            return;
-        }
+    announceRoundStart() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        const text = this.add.text(width / 2, height / 2, 'ROUND 1... FIGHT!', {
+            fontFamily: '"Press Start 2P"', fontSize: '48px', fill: '#ef4444'
+        }).setOrigin(0.5);
 
-        this.health = Math.max(0, this.health - amount);
-        this.isStunned = true;
-
-        const pushDir = this.facingRight ? -280 : 280;
-        this.body.setVelocityX(pushDir);
-
-        // Flash solid color tint during hitstun processing windows
-        this.robeMain.setFillStyle(0xef4444);
-        this.scene.time.delayedCall(this.stunDuration, () => {
-            this.robeMain.setFillStyle(this.colorBase);
-            this.isStunned = false;
-        });
-
-        this.scene.showPopupText(this.x, this.y - 240, `-${amount}`, '#ef4444');
-        if (reason) {
-            this.scene.showPopupText(this.x, this.y - 200, reason, '#fde047');
-        }
+        this.time.delayedCall(1500, () => text.destroy());
     }
 
-    showAttackFlash() {
-        const flashX = this.x + (this.facingRight ? 95 : -95);
-        const flashY = this.y - 110;
-        const flash = this.scene.add.circle(flashX, flashY, 45, this.colorAccent, 0.65);
-        this.scene.tweens.add({
-            targets: flash,
-            scaleX: 2.0,
-            scaleY: 2.0,
-            alpha: 0,
-            duration: 140,
-            onComplete: () => flash.destroy()
+    showPopupText(x, y, text, color) {
+        const popup = this.add.text(x, y, text, {
+            fontFamily: '"Press Start 2P"', fontSize: '18px', fill: color, stroke: '#000000', strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: popup, y: y - 50, alpha: 0, duration: 800, onComplete: () => popup.destroy()
         });
     }
 
-    enableAttackHitbox() {
-        const offset = this.facingRight ? 100 : -100;
-        this.attackHitbox.x = this.x + offset;
-        this.attackHitbox.y = this.y - 110;
-        this.attackHitbox.body.enable = true;
+    playSFX(key) {
+        this.audioManager.sounds[key]?.play();
     }
 
-    disableAttackHitbox() {
-        if (this.attackHitbox && this.attackHitbox.body) {
-            this.attackHitbox.body.enable = false;
-            this.attackHitbox.x = -5000;
-            this.attackHitbox.y = -5000;
-        }
+    cheerSpectators() {
+        this.playSFX('cheer-applause');
+    }
+
+    toggleMute() {
+        this.audioManager.toggleMute();
     }
 
     update() {
-        if (this.body.blocked.down || this.body.touching.down) {
-            this.isGrounded = true;
-            this.jumpsRemaining = 2;
+        if (this.gameState !== 'fight') return;
+
+        this.player1.update();
+        this.player2.update();
+
+        // Player 1 Movement handling
+        if (this.keysP1.left.isDown) this.player1.move(-1);
+        else if (this.keysP1.right.isDown) this.player1.move(1);
+        else this.player1.move(0);
+
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.jump)) this.player1.jump();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.attack)) this.player1.triggerAttack();
+        if (this.keysP1.down.isDown) this.player1.triggerSpecialShield();
+        if (Phaser.Input.Keyboard.JustDown(this.keysP1.super)) this.player1.triggerSuperMove();
+
+        // Player 2 Movement handling (or simple AI simulation)
+        if (this.player2.isAI) {
+            this.handleAI();
         } else {
-            this.isGrounded = false;
+            if (this.keysP2.left.isDown) this.player2.move(-1);
+            else if (this.keysP2.right.isDown) this.player2.move(1);
+            else this.player2.move(0);
+
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.jump)) this.player2.jump();
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.attack)) this.player2.triggerAttack();
+            if (this.keysP2.down.isDown) this.player2.triggerSpecialShield();
+            if (Phaser.Input.Keyboard.JustDown(this.keysP2.super)) this.player2.triggerSuperMove();
         }
 
-        // Continually check blocking status to update shield aura positions dynamically
-        if (this.isBlocking) {
-            this.shieldAura.alpha = 0.4 + (Math.sin(this.scene.time.now * 0.02) * 0.25);
+        this.checkAttackOverlaps();
+        this.updateHUD();
+    }
+
+    handleAI() {
+        const dist = Math.abs(this.player1.x - this.player2.x);
+        if (dist > 150) {
+            const dir = this.player1.x < this.player2.x ? -1 : 1;
+            this.player2.move(dir);
+        } else {
+            this.player2.move(0);
+            if (Math.random() < 0.05) this.player2.triggerAttack();
         }
     }
 
-    showJumpParticles() {
-        const p = this.scene.add.circle(this.x, this.y, 16, 0xffffff, 0.5);
-        this.scene.tweens.add({
-            targets: p,
-            scaleX: 3.0,
-            scaleY: 0.3,
-            alpha: 0,
-            y: this.y + 12,
-            duration: 220,
-            onComplete: () => p.destroy()
+    checkAttackOverlaps() {
+        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
+            this.player2.takeDamage(this.player1.damageNormal);
+            this.player1.superMeter = Math.min(100, this.player1.superMeter + this.comboMeterGain);
+            this.player1.disableAttackHitbox();
+        }
+        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
+            this.player1.takeDamage(this.player2.damageNormal);
+            this.player2.superMeter = Math.min(100, this.player2.superMeter + this.comboMeterGain);
+            this.player2.disableAttackHitbox();
+        }
+    }
+
+    updateHUD() {
+        const width = this.scale.width;
+        const p1HWidth = (this.player1.health / this.player1.maxHealth) * 594;
+        this.h1Bar.width = p1HWidth;
+
+        const p2HWidth = (this.player2.health / this.player2.maxHealth) * 594;
+        this.h2Bar.width = p2HWidth;
+        this.h2Bar.x = width - 138 - p2HWidth;
+        
+        if (this.player1.health <= 0 || this.player2.health <= 0) {
+            this.checkVictoryCondition();
+        }
+    }
+
+    checkVictoryCondition() {
+        this.gameState = 'verdict';
+        const winner = this.player1.health > 0 ? this.player1 : this.player2;
+        const loser = winner === this.player1 ? this.player2 : this.player1;
+
+        this.time.delayedCall(1000, () => {
+            showFinalVerdictScreen(this, 
+                { id: winner.characterId, name: winner.charName },
+                { id: loser.characterId, name: loser.charName },
+                () => this.restartBattle()
+            );
         });
+    }
+
+    restartBattle() {
+        this.scene.restart();
     }
 }
