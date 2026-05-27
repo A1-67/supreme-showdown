@@ -923,6 +923,17 @@ export class Fighter extends Phaser.GameObjects.Container {
     // ─────────────────────────────────────────────────────────────────────────
     //  HELPERS
     // ─────────────────────────────────────────────────────────────────────────
+    // Cycles through kick → slash → teleport → tackle on repeated presses
+    triggerAttack() {
+        if (!this._canAttack()) return;
+        const move = this.comboStep % 4;
+        if (move === 0)      this.doKick();
+        else if (move === 1) this.doSlash();
+        else if (move === 2) this.doTeleport();
+        else                 this.doTackle();
+        this.comboStep = (this.comboStep + 1) % 4;
+    }
+
     _canAttack() {
         const now = this.scene.time.now;
         return !this.isStunned && !this.isAttacking &&
