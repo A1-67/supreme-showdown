@@ -52,7 +52,7 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // Load Background Image
-        this.load.image('courtroom-bg', 'assets/courtroom-bg.webp');
+        this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
         
         // Initialize and preload Audio
         this.audioManager = new AudioManager(this);
