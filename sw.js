@@ -1,4 +1,4 @@
-const CACHE_NAME = 'showdown-v1';
+const CACHE_NAME = 'showdown-v2';
 // Add every local asset file your game needs to run offline
 const ASSETS_TO_CACHE = [
   'index.html',
@@ -10,8 +10,7 @@ const ASSETS_TO_CACHE = [
   'manifest.json',
   'assets/courtroom-bg.png', // <-- Make sure this matches your new filename!
   'assets/audio/court-battle.mp3',   
-  'assets/audio/gavel-hit.mp3',       
-  'assets/audio/cheer-applause.mp3',
+  'assets/audio/gavel-hit.mp3',
   'assets/audio/super-charge.mp3',
   'assets/icon-192.png',
   'assets/icon-512.png'
