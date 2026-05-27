@@ -5,6 +5,8 @@ import { createCharacterSelectUI, showFinalVerdictScreen } from './ui.js';
 
 export default class BattleScene extends Phaser.Scene {
     constructor() {
+        this.demoMode = false;
+        this.demoTimer = 0;
         super({ key: 'BattleScene' });
     }
 
@@ -50,7 +52,7 @@ export default class BattleScene extends Phaser.Scene {
         this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
         
         this.audioManager = new AudioManager(this);
-        this.audioManager.preload();
+        this.audioManager.preload(this);
     }
 
     create() {
