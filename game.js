@@ -653,7 +653,33 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         // Double check bounds / overlaps for physical attacks
-        this.checkAttackOverlaps();
+       checkAttackOverlaps() {
+    // Player 1 hitting Player 2
+    if (this.player1.isAttacking && !this.player2.isStunned) {
+        const hitbox = this.player1.getAttackHitboxBounds();
+        const p2Bounds = this.player2.getBounds();
+        if (Phaser.Geom.Rectangle.Overlaps(hitbox, p2Bounds)) {
+            this.player2.takeDamage(this.player1.damageNormal, this.player1.currentMove);
+            this.player1.gainSuperMeter(this.comboMeterGain);
+            this.playSFX('gavel-hit');
+            this.cheerSpectators();
+            this.player1.disableAttackHitbox();
+        }
+    }
+
+    // Player 2 hitting Player 1
+    if (this.player2.isAttacking && !this.player1.isStunned) {
+        const hitbox = this.player2.getAttackHitboxBounds();
+        const p1Bounds = this.player1.getBounds();
+        if (Phaser.Geom.Rectangle.Overlaps(hitbox, p1Bounds)) {
+            this.player1.takeDamage(this.player2.damageNormal, this.player2.currentMove);
+            this.player2.gainSuperMeter(this.comboMeterGain);
+            this.playSFX('gavel-hit');
+            this.cheerSpectators();
+            this.player2.disableAttackHitbox();
+        }
+    }
+}
 
         // Check health levels for win condition
         this.checkVictoryCondition();
