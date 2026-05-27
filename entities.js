@@ -20,6 +20,7 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.superMeter = 0;
 
         this.isStunned = false;
+        this.stunTween = null;
 
         this.speed           = characterId === 'roe' ? 540 : 420;
         this.jumpForce       = characterId === 'roe' ? -1000 : -860;
