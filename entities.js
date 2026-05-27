@@ -828,9 +828,14 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.isStunned = true;
         this.body.setVelocityX(this.facingRight ? -260 : 260);
 
-        this.scene.tweens.add({
-            targets: this.spriteBody, alpha: 0.1, yoyo: true, repeat: 2, duration: 40,
-            onComplete: () => { this.spriteBody.alpha = 1; this.isStunned = false; }
+        // Cancel any existing stun tween so overlapping hits don't clear stun early
+        if (this.stunTween) {
+            this.stunTween.stop();
+            this.spriteBody.alpha = 1;
+        }
+        this.stunTween = this.scene.tweens.add({
+            targets: this.spriteBody, alpha: 0.1, yoyo: true, repeat: 4, duration: 50,
+            onComplete: () => { this.spriteBody.alpha = 1; this.isStunned = false; this.stunTween = null; }
         });
 
         this.gainSuperMeter(amount * 0.4);
