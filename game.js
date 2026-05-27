@@ -9,19 +9,15 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     init() {
-        // Setup state variables
-        this.gameState = 'menu'; // 'menu' | 'character_select' | 'fight' | 'verdict'
+        this.gameState = 'menu';
         this.fighters = [];
-        this.floorY = 920; // 1080p fit floor alignment
-        this.comboMeterGain = 12; // Gains 12% super per normal hit
-        
-        // Timer configurations
+        this.floorY = 920;
+        this.comboMeterGain = 12;
         this.roundTimerValue = 99;
         this.timerEvent = null;
     }
 
     preload() {
-        // Setup a beautiful retro court loading progress bar
         const width = this.scale.width;
         const height = this.scale.height;
         
@@ -51,40 +47,29 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
-        // Load Background Image
         this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
         
-        // Initialize and preload Audio
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
 
     create() {
-        // Desktop Scaling setup: Base resolution 1920x1080
         const width = this.scale.width;
         const height = this.scale.height;
 
         this.audioManager.init();
 
-        // Background stage
         this.bg = this.add.image(width / 2, height / 2, 'courtroom-bg');
         this.bg.setDisplaySize(width, height);
 
-        // Draw Interactive Judicial Bench & Pillars (Volumetric sunbeams & ground)
         this.createCourtroomProps();
-
-        // Create the Judicial Gallery (Cheering robed wigged spectators holding tiny gavels)
         this.createJudicialGallery();
-
-        // Title Screen and Lobby UI
         this.createMainMenu();
 
-        // Play loopable BGM on first interaction
         this.input.once('pointerdown', () => {
             this.audioManager.playMusic();
         });
 
-        // Setup sound hotkey (Mute toggle 'M')
         this.input.keyboard.on('keydown-M', () => {
             this.toggleMute();
         });
@@ -94,9 +79,8 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         const height = this.scale.height;
         
-        // Volumetric warm sunbeams filtering down from dome ceiling (adds beautiful classical court aesthetic)
         const sunBeam1 = this.add.graphics();
-        sunBeam1.fillStyle(0xfde047, 0.08); // Semi-transparent warm yellow
+        sunBeam1.fillStyle(0xfde047, 0.08);
         sunBeam1.beginPath();
         sunBeam1.moveTo(width / 2 - 250, 0);
         sunBeam1.lineTo(width / 2 + 250, 0);
@@ -115,10 +99,8 @@ export default class BattleScene extends Phaser.Scene {
         sunBeam2.closePath();
         sunBeam2.fillPath();
 
-        // Polished marble floor reflection overlay
         const floorReflection = this.add.rectangle(width / 2, this.floorY + 80, width, 160, 0x1e1b4b, 0.12);
         
-        // Create invisible ground physics body
         this.ground = this.add.rectangle(width / 2, this.floorY + 15, width, 30, 0x000000, 0);
         this.physics.add.existing(this.ground, true);
     }
@@ -127,7 +109,6 @@ export default class BattleScene extends Phaser.Scene {
         const width = this.scale.width;
         this.galleryJudges = [];
 
-        // Row of wigged judges sitting at judicial bench bobbing and waving tiny wooden gavels
         const benchXStart = width / 2 - 320;
         const judgeCount = 7;
 
@@ -137,12 +118,10 @@ export default class BattleScene extends Phaser.Scene {
 
             const judgeContainer = this.add.container(jx, jy);
             
-            // Black judicial robes
             const body = this.add.graphics();
             body.fillStyle(0x111827, 1);
             body.fillRoundedRect(-25, 0, 50, 60, 6);
             
-            // Lace collar
             const collar = this.add.graphics();
             collar.fillStyle(0xffffff, 1);
             collar.beginPath();
@@ -152,12 +131,10 @@ export default class BattleScene extends Phaser.Scene {
             collar.closePath();
             collar.fillPath();
 
-            // Face
             const head = this.add.graphics();
             head.fillStyle(0xfde047, 1);
             head.fillCircle(0, -15, 16);
 
-            // Classic curly judicial wig
             const wig = this.add.graphics();
             wig.fillStyle(0xf9fafb, 1);
             wig.lineStyle(2, 0xe5e7eb, 1);
@@ -168,11 +145,10 @@ export default class BattleScene extends Phaser.Scene {
             wig.fillCircle(0, -28, 15);
             wig.strokeCircle(0, -28, 15);
 
-            // Hand waving a tiny gavel (just like robed judges in image!)
             const tinyGavel = this.add.graphics();
-            tinyGavel.fillStyle(0x78350f, 1); // Brown shaft
-            tinyGavel.fillRect(15, -15, 5, 20); // Handle
-            tinyGavel.fillStyle(0x451a03, 1); // Oak mallet
+            tinyGavel.fillStyle(0x78350f, 1);
+            tinyGavel.fillRect(15, -15, 5, 20);
+            tinyGavel.fillStyle(0x451a03, 1);
             tinyGavel.fillRect(10, -22, 15, 8);
 
             judgeContainer.add([body, collar, head, wig, tinyGavel]);
@@ -181,7 +157,6 @@ export default class BattleScene extends Phaser.Scene {
             this.add.existing(judgeContainer);
             this.galleryJudges.push(judgeContainer);
 
-            // Back-and-forth idle breathing
             this.tweens.add({
                 targets: judgeContainer,
                 y: jy + 6,
@@ -199,7 +174,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.menuContainer = this.add.container(width / 2, height / 2);
 
-        // Header Title Banner
         const logoBack = this.add.rectangle(0, -220, 950, 150, 0x18181b, 0.9);
         logoBack.setStrokeStyle(6, 0xeab308);
 
@@ -223,7 +197,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.menuContainer.add([logoBack, titleText, subTitleText]);
 
-        // Start Game Button
         const startBtn = this.add.rectangle(0, 40, 380, 70, 0x16a34a);
         startBtn.setStrokeStyle(4, 0xffffff);
         startBtn.setInteractive(new Phaser.Geom.Rectangle(0, 0, 380, 70), Phaser.Geom.Rectangle.Contains);
@@ -237,7 +210,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.menuContainer.add([startBtn, startText]);
 
-        // Start Game Button Interactions
         startBtn.on('pointerover', () => {
             startBtn.setFillStyle(0x15803d);
             startText.setScale(1.05);
@@ -252,7 +224,6 @@ export default class BattleScene extends Phaser.Scene {
             this.transitionToCharacterSelect();
         });
 
-        // Rules Panel
         const controlPanel = this.add.graphics();
         controlPanel.fillStyle(0x18181b, 0.9);
         controlPanel.fillRoundedRect(-450, 140, 900, 180, 8);
@@ -268,7 +239,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.menuContainer.add([p1Label, p1Controls, p2Label, p2Controls]);
 
-        // Decorative scales banner
         this.menuScales = this.add.graphics();
         this.menuScales.lineStyle(4, 0xca8a04, 0.6);
         this.menuScales.lineBetween(-200, -80, 200, -80);
@@ -297,7 +267,6 @@ export default class BattleScene extends Phaser.Scene {
     startFight(p1Id, p2Id, isVsAI) {
         this.gameState = 'fight';
 
-        // Spawn characters
         this.player1 = new Fighter(this, 400, this.floorY, p1Id, false, false);
         this.player2 = new Fighter(this, 1520, this.floorY, p2Id, true, isVsAI);
         this.fighters = [this.player1, this.player2];
@@ -309,7 +278,6 @@ export default class BattleScene extends Phaser.Scene {
         this.createHUD();
         this.announceRoundStart();
 
-        // Round Timer Events (exact 99s fight countdown!)
         this.roundTimerValue = 99;
         this.timerText.setText(this.roundTimerValue.toString());
         
@@ -415,20 +383,13 @@ export default class BattleScene extends Phaser.Scene {
         });
     }
 
-    /**
-     * MODULE 1: Circular Corner Emblem HUD Layout
-     * Replicates the exact styling, color palette, and layout from the uploaded image!
-     */
     createHUD() {
         const width = this.scale.width;
         this.hudContainer = this.add.container(0, 0);
 
-        // Dark modern top bar
         const topBar = this.add.rectangle(width / 2, 50, width, 100, 0x111827, 0.4);
         this.hudContainer.add(topBar);
 
-        // --- PLAYER 1 HUD (ROE - LEFT) ---
-        // Circular Cyan emblem containing scales of justice outline
         const p1Circle = this.add.circle(65, 65, 45, 0x1e3a8a);
         p1Circle.setStrokeStyle(4, 0x60a5fa);
         
@@ -439,7 +400,6 @@ export default class BattleScene extends Phaser.Scene {
         p1CircleScales.strokeCircle(45, 75, 6);
         p1CircleScales.strokeCircle(85, 75, 6);
         
-        // "ROE" text label below circular icon
         this.hudP1Name = this.add.text(125, 25, 'ROE', {
             fontFamily: '"Press Start 2P"',
             fontSize: '18px',
@@ -448,12 +408,10 @@ export default class BattleScene extends Phaser.Scene {
             strokeThickness: 3
         });
 
-        // Sleek Health Bar outer container
         const h1Bg = this.add.rectangle(435, 60, 600, 30, 0x1f2937);
-        h1Bg.setStrokeStyle(3.5, 0xeab308); // Golden borders
-        this.h1Bar = this.add.rectangle(138, 48, 594, 24, 0x22c55e).setOrigin(0, 0); // Green health
+        h1Bg.setStrokeStyle(3.5, 0xeab308);
+        this.h1Bar = this.add.rectangle(138, 48, 594, 24, 0x22c55e).setOrigin(0, 0);
 
-        // Super Meter & Super Gauges underneath health
         const s1Bg = this.add.rectangle(290, 93, 300, 14, 0x111827);
         s1Bg.setStrokeStyle(2, 0x4b5563);
         this.s1Bar = this.add.rectangle(142, 88, 0, 10, 0x6366f1).setOrigin(0, 0);
@@ -461,19 +419,15 @@ export default class BattleScene extends Phaser.Scene {
 
         this.hudContainer.add([p1Circle, p1CircleScales, this.hudP1Name, h1Bg, this.h1Bar, s1Bg, this.s1Bar, this.s1Text]);
 
-
-        // --- PLAYER 2 HUD (WADE - RIGHT) ---
-        // Circular Red emblem containing gavel outline
         const p2Circle = this.add.circle(width - 65, 65, 45, 0x7f1d1d);
         p2Circle.setStrokeStyle(4, 0xef4444);
 
         const p2CircleGavel = this.add.graphics();
         p2CircleGavel.lineStyle(3, 0xfca5a5, 1);
-        p2CircleGavel.lineBetween(width - 78, 78, width - 52, 52); // handle
+        p2CircleGavel.lineBetween(width - 78, 78, width - 52, 52);
         p2CircleGavel.fillStyle(0xef4444, 1);
         p2CircleGavel.fillCircle(width - 52, 52, 10);
 
-        // "WADE" text label below icon
         this.hudP2Name = this.add.text(width - 125, 25, 'WADE', {
             fontFamily: '"Press Start 2P"',
             fontSize: '18px',
@@ -482,12 +436,10 @@ export default class BattleScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(1, 0);
 
-        // Sleek Health Bar container
         const h2Bg = this.add.rectangle(width - 435, 60, 600, 30, 0x1f2937);
-        h2Bg.setStrokeStyle(3.5, 0xeab308); // Golden borders
-        this.h2Bar = this.add.rectangle(width - 138 - 594, 48, 594, 24, 0xf97316).setOrigin(0, 0); // Orange/Red health
+        h2Bg.setStrokeStyle(3.5, 0xeab308);
+        this.h2Bar = this.add.rectangle(width - 138 - 594, 48, 594, 24, 0xf97316).setOrigin(0, 0);
 
-        // Super Meter & Super Gauges underneath health
         const s2Bg = this.add.rectangle(width - 290, 93, 300, 14, 0x111827);
         s2Bg.setStrokeStyle(2, 0x4b5563);
         this.s2Bar = this.add.rectangle(width - 142 - 294, 88, 0, 10, 0xec4899).setOrigin(0, 0);
@@ -495,12 +447,9 @@ export default class BattleScene extends Phaser.Scene {
 
         this.hudContainer.add([p2Circle, p2CircleGavel, this.hudP2Name, h2Bg, this.h2Bar, s2Bg, this.s2Bar, this.s2Text]);
 
-
-        // --- ORNATE ROUND TIMER HUD (TOP CENTER - EXACTLY AS PICTURED!) ---
         const timerBgCircle = this.add.circle(width / 2, 60, 48, 0x1c1917);
-        timerBgCircle.setStrokeStyle(5, 0xeab308); // Rich golden frame
+        timerBgCircle.setStrokeStyle(5, 0xeab308);
 
-        // Ornate timer count
         this.timerText = this.add.text(width / 2, 58, '99', {
             fontFamily: '"Press Start 2P"',
             fontSize: '34px',
@@ -508,7 +457,6 @@ export default class BattleScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        // ROUND 1 pill capsule label below timer
         const roundCapsule = this.add.graphics();
         roundCapsule.fillStyle(0x27272a, 0.95);
         roundCapsule.lineStyle(2, 0xeab308, 0.85);
@@ -523,7 +471,6 @@ export default class BattleScene extends Phaser.Scene {
 
         this.hudContainer.add([timerBgCircle, this.timerText, roundCapsule, roundLabel]);
 
-        // Mute button helper
         this.muteButton = this.add.text(width - 40, 150, '🔊 MUTE (M)', {
             fontFamily: '"Press Start 2P"',
             fontSize: '11px',
@@ -543,7 +490,6 @@ export default class BattleScene extends Phaser.Scene {
     updateHUD() {
         const width = this.scale.width;
 
-        // Animate health bars
         const p1HWidth = (this.player1.health / this.player1.maxHealth) * 594;
         this.tweens.add({
             targets: this.h1Bar,
@@ -561,11 +507,9 @@ export default class BattleScene extends Phaser.Scene {
             ease: 'Quad.easeOut'
         });
 
-        // Color shifts health bars
         this.h1Bar.setFillStyle(this.player1.health < 30 ? 0xef4444 : (this.player1.health < 60 ? 0xeab308 : 0x22c55e));
         this.h2Bar.setFillStyle(this.player2.health < 30 ? 0xef4444 : (this.player2.health < 60 ? 0xeab308 : 0xf97316));
 
-        // P1 Super meter
         const p1SWidth = (this.player1.superMeter / 100) * 294;
         this.s1Bar.width = p1SWidth;
         this.s1Text.setText(`METER  ${Math.floor(this.player1.superMeter)}%`);
@@ -576,7 +520,6 @@ export default class BattleScene extends Phaser.Scene {
             this.s1Text.setFill('#a5b4fc');
         }
 
-        // P2 Super meter
         const p2SWidth = (this.player2.superMeter / 100) * 294;
         this.s2Bar.width = p2SWidth;
         this.s2Bar.x = width - 142 - p2SWidth;
@@ -592,7 +535,6 @@ export default class BattleScene extends Phaser.Scene {
     update() {
         if (this.gameState !== 'fight') return;
 
-        // Fighter updates
         this.player1.update(this.player2);
         this.player2.update(this.player1);
 
@@ -652,39 +594,8 @@ export default class BattleScene extends Phaser.Scene {
             }
         }
 
-        // Double check bounds / overlaps for physical attacks
-       checkAttackOverlaps() {
-    // Player 1 hitting Player 2
-    if (this.player1.isAttacking && !this.player2.isStunned) {
-        const hitbox = this.player1.getAttackHitboxBounds();
-        const p2Bounds = this.player2.getBounds();
-        if (Phaser.Geom.Rectangle.Overlaps(hitbox, p2Bounds)) {
-            this.player2.takeDamage(this.player1.damageNormal, this.player1.currentMove);
-            this.player1.gainSuperMeter(this.comboMeterGain);
-            this.playSFX('gavel-hit');
-            this.cheerSpectators();
-            this.player1.disableAttackHitbox();
-        }
-    }
-
-    // Player 2 hitting Player 1
-    if (this.player2.isAttacking && !this.player1.isStunned) {
-        const hitbox = this.player2.getAttackHitboxBounds();
-        const p1Bounds = this.player1.getBounds();
-        if (Phaser.Geom.Rectangle.Overlaps(hitbox, p1Bounds)) {
-            this.player1.takeDamage(this.player2.damageNormal, this.player2.currentMove);
-            this.player2.gainSuperMeter(this.comboMeterGain);
-            this.playSFX('gavel-hit');
-            this.cheerSpectators();
-            this.player2.disableAttackHitbox();
-        }
-    }
-}
-
-        // Check health levels for win condition
+        this.checkAttackOverlaps();
         this.checkVictoryCondition();
-
-        // Render HUD updates
         this.updateHUD();
     }
 
@@ -694,7 +605,6 @@ export default class BattleScene extends Phaser.Scene {
 
         if (this.player2.isStunned) return;
 
-        // Move towards Player 1
         if (dist > 180) {
             const dir = this.player1.x > this.player2.x ? 1 : -1;
             this.player2.move(dir);
@@ -716,10 +626,12 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     checkAttackOverlaps() {
-        // Player 1 Hitbox hitting Player 2
-        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
-            if (!this.player2.isStunned) {
-                this.player2.takeDamage(this.player1.damageNormal, this.player1.attackText);
+        // Player 1 hitting Player 2
+        if (this.player1.isAttacking && !this.player2.isStunned) {
+            const hitbox = this.player1.getAttackHitboxBounds();
+            const p2Bounds = this.player2.getBounds();
+            if (Phaser.Geom.Rectangle.Overlaps(hitbox, p2Bounds)) {
+                this.player2.takeDamage(this.player1.damageNormal, this.player1.currentMove);
                 this.player1.gainSuperMeter(this.comboMeterGain);
                 this.playSFX('gavel-hit');
                 this.cheerSpectators();
@@ -727,10 +639,12 @@ export default class BattleScene extends Phaser.Scene {
             }
         }
 
-        // Player 2 Hitbox hitting Player 1
-        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
-            if (!this.player1.isStunned) {
-                this.player1.takeDamage(this.player2.damageNormal, this.player2.attackText);
+        // Player 2 hitting Player 1
+        if (this.player2.isAttacking && !this.player1.isStunned) {
+            const hitbox = this.player2.getAttackHitboxBounds();
+            const p1Bounds = this.player1.getBounds();
+            if (Phaser.Geom.Rectangle.Overlaps(hitbox, p1Bounds)) {
+                this.player1.takeDamage(this.player2.damageNormal, this.player2.currentMove);
                 this.player2.gainSuperMeter(this.comboMeterGain);
                 this.playSFX('gavel-hit');
                 this.cheerSpectators();
@@ -744,7 +658,6 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     cheerSpectators() {
-        // Robed judges leap up excitedly waving tiny wooden gavels
         this.galleryJudges.forEach((judge, idx) => {
             this.tweens.add({
                 targets: judge,
@@ -755,7 +668,6 @@ export default class BattleScene extends Phaser.Scene {
                 ease: 'Back.easeOut'
             });
 
-            // Wiggle their tiny wooden gavels
             if (judge.tinyGavel) {
                 this.tweens.add({
                     targets: judge.tinyGavel,
@@ -772,7 +684,6 @@ export default class BattleScene extends Phaser.Scene {
         this.audioManager.playSFX(key);
     }
 
-    // High contrast arcade popping text
     showPopupText(x, y, text, color) {
         const style = {
             fontFamily: '"Press Start 2P"',
@@ -811,7 +722,6 @@ export default class BattleScene extends Phaser.Scene {
     handleTimeOut() {
         this.gameState = 'verdict';
         this.audioManager.stopMusic();
-        this.playSFX('cheer-applause');
 
         const winner = this.player1.health >= this.player2.health ? this.player1 : this.player2;
         const loser = winner === this.player1 ? this.player2 : this.player1;
@@ -824,13 +734,12 @@ export default class BattleScene extends Phaser.Scene {
         showFinalVerdictScreen(this, 
             { id: winner.characterId, name: winner.charName },
             { id: loser.characterId, name: loser.charName },
-            () => {
-                this.restartBattle();
-            }
+            () => { this.restartBattle(); }
         );
     }
 
     checkVictoryCondition() {
+        if (this.gameState !== 'fight') return;
         if (this.player1.health <= 0 || this.player2.health <= 0) {
             this.gameState = 'verdict';
 
@@ -838,7 +747,6 @@ export default class BattleScene extends Phaser.Scene {
             const loser = winner === this.player1 ? this.player2 : this.player1;
 
             this.audioManager.stopMusic();
-            this.playSFX('cheer-applause');
 
             this.fighters.forEach(f => {
                 f.body.setVelocity(0, 0);
@@ -851,9 +759,7 @@ export default class BattleScene extends Phaser.Scene {
                 showFinalVerdictScreen(this, 
                     { id: winner.characterId, name: winner.charName },
                     { id: loser.characterId, name: loser.charName },
-                    () => {
-                        this.restartBattle();
-                    }
+                    () => { this.restartBattle(); }
                 );
             });
         }
