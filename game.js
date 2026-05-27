@@ -53,7 +53,8 @@ export default class BattleScene extends Phaser.Scene {
             loadingText.destroy();
         });
 
-        // Background image files are optional. Use generated visual styling instead.
+        // Try to load optional background image from assets; procedural fallback used if absent
+        this.load.image('courtroom-bg', 'assets/courtroom-bg.png');
         this.audioManager = new AudioManager(this);
         this.audioManager.preload();
     }
@@ -91,6 +92,15 @@ export default class BattleScene extends Phaser.Scene {
     createProceduralBackground() {
         const width = this.scale.width;
         const height = this.scale.height;
+
+        // Use the PNG background if it was loaded successfully, otherwise draw procedural backdrop
+        if (this.textures.exists('courtroom-bg')) {
+            const bg = this.add.image(0, 0, 'courtroom-bg').setOrigin(0, 0).setDepth(0);
+            // Stretch to cover the canvas (keeps things simple and robust across sizes)
+            bg.displayWidth = width;
+            bg.displayHeight = height;
+            return;
+        }
 
         const base = this.add.graphics();
         base.fillStyle(0x101018, 1);
@@ -328,12 +338,17 @@ export default class BattleScene extends Phaser.Scene {
     startFight(p1Id, p2Id, vsAI) {
         this.gameState = 'fight';
         const width = this.scale.width;
+        try {
+            this.player1 = new Fighter(this, width * 0.25, this.floorY, p1Id, false, false);
+            this.player2 = new Fighter(this, width * 0.75, this.floorY, p2Id, true, vsAI);
 
-        this.player1 = new Fighter(this, width * 0.25, this.floorY, p1Id, false, false);
-        this.player2 = new Fighter(this, width * 0.75, this.floorY, p2Id, true, vsAI);
-
-        this.add.existing(this.player1);
-        this.add.existing(this.player2);
+            // Fighter constructors already add themselves to the scene; calling add.existing again is harmless but kept defensive
+            try { this.add.existing(this.player1); } catch (e) { /* ignore */ }
+            try { this.add.existing(this.player2); } catch (e) { /* ignore */ }
+        } catch (err) {
+            console.error('Error creating fighters in startFight:', err);
+            return;
+        }
 
         [this.player1, this.player2].forEach((player) => {
             if (typeof player.physicsInit !== 'function') {
@@ -355,9 +370,13 @@ export default class BattleScene extends Phaser.Scene {
 
         this.fighters = [this.player1, this.player2];
 
-        this.physics.add.collider(this.player1, this.ground);
-        this.physics.add.collider(this.player2, this.ground);
-        this.physics.add.collider(this.player1, this.player2);
+        try {
+            this.physics.add.collider(this.player1, this.ground);
+            this.physics.add.collider(this.player2, this.ground);
+            this.physics.add.collider(this.player1, this.player2);
+        } catch (e) {
+            console.error('Error adding colliders in startFight:', e);
+        }
 
         this.setupControls();
         this.setupBattleHUD();
@@ -376,14 +395,18 @@ export default class BattleScene extends Phaser.Scene {
         this.timerEvent = this.time.addEvent({
             delay: 1000,
             callback: () => {
-                if (this.gameState === 'fight' && this.roundTimerValue > 0) {
-                    this.roundTimerValue -= 1;
-                    if (this.timerText) {
-                        this.timerText.setText(this.roundTimerValue.toString());
+                try {
+                    if (this.gameState === 'fight' && this.roundTimerValue > 0) {
+                        this.roundTimerValue -= 1;
+                        if (this.timerText) {
+                            this.timerText.setText(this.roundTimerValue.toString());
+                        }
+                        if (this.roundTimerValue === 0) {
+                            this.handleTimeOut();
+                        }
                     }
-                    if (this.roundTimerValue === 0) {
-                        this.handleTimeOut();
-                    }
+                } catch (err) {
+                    console.error('Error in round timer callback:', err);
                 }
             },
             loop: true
@@ -713,26 +736,37 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     checkAttackOverlaps() {
-        // Player 1 Hitbox hitting Player 2
-        if (this.player1.isAttacking && this.physics.overlap(this.player1.attackHitbox, this.player2)) {
-            if (!this.player2.isStunned) {
-                this.player2.takeDamage(this.player1.damageNormal, this.player1.attackText);
-                this.player1.gainSuperMeter(this.comboMeterGain);
-                this.playSFX('gavel-hit');
-                this.cheerSpectators();
-                this.player1.disableAttackHitbox();
+        // Use geometric rectangles for attack hit detection to avoid relying on non-existing GameObjects
+        try {
+            if (this.player1 && this.player2 && this.player1.isAttacking) {
+                const hb = this.player1.getAttackHitboxBounds();
+                const targetBody = this.player2.body && this.player2.body.getBounds ? this.player2.body.getBounds() : null;
+                if (targetBody && Phaser.Geom.Intersects.RectangleToRectangle(hb, targetBody)) {
+                    if (!this.player2.isStunned) {
+                        this.player2.takeDamage(this.player1.damageNormal, this.player1.attackText);
+                        this.player1.gainSuperMeter(this.comboMeterGain);
+                        this.playSFX('gavel-hit');
+                        this.cheerSpectators();
+                        this.player1.disableAttackHitbox();
+                    }
+                }
             }
-        }
 
-        // Player 2 Hitbox hitting Player 1
-        if (this.player2.isAttacking && this.physics.overlap(this.player2.attackHitbox, this.player1)) {
-            if (!this.player1.isStunned) {
-                this.player1.takeDamage(this.player2.damageNormal, this.player2.attackText);
-                this.player2.gainSuperMeter(this.comboMeterGain);
-                this.playSFX('gavel-hit');
-                this.cheerSpectators();
-                this.player2.disableAttackHitbox();
+            if (this.player2 && this.player1 && this.player2.isAttacking) {
+                const hb2 = this.player2.getAttackHitboxBounds();
+                const targetBody2 = this.player1.body && this.player1.body.getBounds ? this.player1.body.getBounds() : null;
+                if (targetBody2 && Phaser.Geom.Intersects.RectangleToRectangle(hb2, targetBody2)) {
+                    if (!this.player1.isStunned) {
+                        this.player1.takeDamage(this.player2.damageNormal, this.player2.attackText);
+                        this.player2.gainSuperMeter(this.comboMeterGain);
+                        this.playSFX('gavel-hit');
+                        this.cheerSpectators();
+                        this.player2.disableAttackHitbox();
+                    }
+                }
             }
+        } catch (err) {
+            console.error('Error in checkAttackOverlaps:', err);
         }
     }
 
