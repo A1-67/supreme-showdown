@@ -13,6 +13,8 @@ export default class BattleScene extends Phaser.Scene {
         this.fighters = [];
         this.floorY = 920;
         this.comboMeterGain = 12;
+        this.demoMode = false;
+        this.demoTimer = 0;
         this.roundTimerValue = 99;
         this.timerEvent = null;
     }
@@ -72,6 +74,28 @@ export default class BattleScene extends Phaser.Scene {
 
         this.input.keyboard.on('keydown-M', () => {
             this.toggleMute();
+        });
+
+        this.demoButton = this.add.text(20, 20, 'DEMO MODE', {
+            fontSize: '24px',
+            fill: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setInteractive().setScrollFactor(0);
+
+        this.demoButton.on('pointerdown', () => {
+            this.startDemoMode();
+        });
+
+        this.endDemoButton = this.add.text(20, 60, 'END DEMO', {
+            fontSize: '24px',
+            fill: '#ff4444',
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setInteractive().setVisible(false).setScrollFactor(0);
+
+        this.endDemoButton.on('pointerdown', () => {
+            this.endDemoMode();
         });
     }
 
@@ -532,11 +556,26 @@ export default class BattleScene extends Phaser.Scene {
         }
     }
 
-    update() {
+    update(time, delta) {
         if (this.gameState !== 'fight') return;
 
         this.player1.update(this.player2);
         this.player2.update(this.player1);
+
+        if (this.demoMode) {
+            this.handleAIBehavior(this.player1, this.player2);
+            this.handleAIBehavior(this.player2, this.player1);
+
+            this.demoTimer -= delta;
+
+            if (this.demoTimer <= 0) {
+                this.endDemoMode();
+            }
+
+            this.checkAttackOverlaps();
+            this.checkVictoryCondition();
+            return;
+        }
 
         // --- PLAYER 1 (ROE) INPUTS ---
         let p1XDir = 0;
@@ -564,7 +603,7 @@ export default class BattleScene extends Phaser.Scene {
 
         // --- PLAYER 2 (WADE) / AI INPUTS ---
         if (this.player2.isAI) {
-            this.handleAIBehavior();
+            this.handleAIBehavior(this.player2, this.player1);
         } else {
             let p2XDir = 0;
             if (this.keysP2.left.isDown) p2XDir = -1;
@@ -599,30 +638,47 @@ export default class BattleScene extends Phaser.Scene {
         this.updateHUD();
     }
 
-    handleAIBehavior() {
-        const dist = Phaser.Math.Distance.Between(this.player1.x, this.player1.y, this.player2.x, this.player2.y);
+    
+handleAIBehavior(aiPlayer, targetPlayer) {
+        const dist = Phaser.Math.Distance.Between(aiPlayer.x, aiPlayer.y, targetPlayer.x, targetPlayer.y);
         const now = this.time.now;
 
-        if (this.player2.isStunned) return;
+        if (aiPlayer.isStunned) return;
 
         if (dist > 180) {
-            const dir = this.player1.x > this.player2.x ? 1 : -1;
-            this.player2.move(dir);
-            
-            if (Math.random() < 0.02 && this.player2.isGrounded) {
-                this.player2.jump();
+            const dir = targetPlayer.x > aiPlayer.x ? 1 : -1;
+            aiPlayer.move(dir);
+
+            if (Math.random() < 0.008 && aiPlayer.isGrounded) {
+                aiPlayer.jump();
             }
         } else {
-            this.player2.body.setVelocityX(0);
+            aiPlayer.body.setVelocityX(0);
 
-            if (this.player2.superMeter >= 100) {
-                this.triggerSuper(this.player2);
-            } else if (this.player1.isAttacking && Math.random() < 0.3) {
-                this.player2.triggerSpecialShield();
-            } else if (now - this.player2.lastAttackTime > 350) {
-                this.player2.triggerAttack();
+            if (aiPlayer.superMeter >= 100 && Math.random() < 0.015) {
+                this.triggerSuper(aiPlayer);
+            } else if (targetPlayer.isAttacking && Math.random() < 0.12) {
+                aiPlayer.triggerSpecialShield();
+            } else if (now - aiPlayer.lastAttackTime > 900) {
+                aiPlayer.triggerAttack();
             }
         }
+    }
+
+    startDemoMode() {
+        this.demoMode = true;
+        this.demoTimer = 300000;
+
+        this.player1.isAI = true;
+        this.player2.isAI = true;
+
+        this.endDemoButton.setVisible(true);
+    }
+
+    endDemoMode() {
+        this.demoMode = false;
+        this.endDemoButton.setVisible(false);
+        this.scene.restart();
     }
 
     checkAttackOverlaps() {
