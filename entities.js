@@ -747,7 +747,6 @@ export class Fighter extends Phaser.GameObjects.Container {
         this.aura.setVisible(true);
 
         this.scene.playSFX('super-charge');
-        this.scene.playSFX('cheer-applause');
         this.scene.cameras.main.shake(450, 0.03);
         this.speakLine(this.characterId === 'roe' ? "The individual must be free!" : "The law is absolute!");
 
@@ -926,12 +925,17 @@ export class Fighter extends Phaser.GameObjects.Container {
     // Cycles through kick → slash → teleport → tackle on repeated presses
     triggerAttack() {
         if (!this._canAttack()) return;
+        const now = this.scene.time.now;
+        // Reset combo if too much time has passed
+        if (now - this.lastComboTime > this.comboResetDelay) this.comboStep = 0;
+        this.lastComboTime = now;
         const move = this.comboStep % 4;
         if (move === 0)      this.doKick();
         else if (move === 1) this.doSlash();
         else if (move === 2) this.doTeleport();
         else                 this.doTackle();
-        this.comboStep = (this.comboStep + 1) % 4;
+        // doSlash manages comboStep internally for Roe's 3-hit chain; advance it for all other moves
+        if (move !== 1) this.comboStep = (this.comboStep + 1) % 4;
     }
 
     _canAttack() {
