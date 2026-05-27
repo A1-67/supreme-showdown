@@ -18,38 +18,9 @@ export class AudioManager {
         this.musicInterval = null;
     }
 
-    preload(scene) {
-    scene.load.audio('court-battle', 'assets/audio/court-battle.mp3');
-}
-
-init(scene) {
-    this.scene = scene;
-
-    const sfxKeys = [
-        'gavel-hit',
-        'super-charge'
-    ];
-
-    sfxKeys.forEach(key => {
-        try {
-            this.sounds[key] = scene.sound.add(key);
-        } catch (e) {
-            console.warn(`Failed to register sound: ${key}`, e);
-        }
-    });
-
-    // Background music
-    try {
-        this.music = scene.sound.add('court-battle', {
-            volume: 0.35,
-            loop: true
-        });
-
-        this.music.play();
-    } catch (e) {
-        console.warn('Music failed to start', e);
+    preload() {
+        this.scene.load.audio('court-battle', 'assets/audio/court-battle.mp3');
     }
-}
 
     init() {
         this.createAudioContext();
